@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-14
+
+### Changed
+- Locked dependencies updated: selectolax 1.0.0, typer 0.27.3, websockets 17.2, and `@types/chrome` 0.3.5 for the extension.
+- CI also runs the tests against the lowest versions `pyproject.toml` allows.
+
 ### Fixed
 - The declared minimum versions of `typer` and `websockets` were too old to work: `websockets` below 15.0 lacks the sync client's `ping_interval`, and `typer` below 0.15.4 breaks with Click 8.2+. They are now `typer>=0.15.4` and `websockets>=15.0`; Dependabot only updates `uv.lock`, so routine bumps no longer raise these floors.
 
