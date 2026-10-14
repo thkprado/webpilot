@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-14
+
 ### Added
 - "Let your AI set it up" section in the README and the agent guide `docs/AI_SETUP.md`.
 - Portuguese README (`README.pt-BR.md`).
@@ -17,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - The daemon answers a malformed request with an error instead of dropping the connection, and ignores malformed messages from the extension.
+
+### Changed
+- CI lints with ruff and tests Python 3.11 and 3.14; Dependabot also covers the extension's npm packages and `uv.lock`.
 
 ## [0.1.0] - 2026-10-14
 
