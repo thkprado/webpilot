@@ -9,6 +9,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - "Let your AI set it up" section in the README and the agent guide `docs/AI_SETUP.md`.
 - Portuguese README (`README.pt-BR.md`).
 
+### Security
+- `blocked_domains` could be bypassed with a trailing dot (`https://bank.example.com./`), and entries with capitals, `*.` or a scheme never matched. Hosts and entries are now normalized before comparing.
+- On Linux/macOS, `~/.webpilot` and the files holding the daemon token (`config.json`, the extension's `config.json`) are now owner-only (0700/0600); existing installs are tightened on the next run.
+- The session log records the host only, never `user:password@` or the port of a URL.
+- Snapshots leave out `data:` and `vbscript:` link targets as well as `javascript:`; the Google parser skips Google links by exact hostname.
+
+### Fixed
+- The daemon answers a malformed request with an error instead of dropping the connection, and ignores malformed messages from the extension.
+
 ## [0.1.0] - 2026-10-14
 
 First public release.

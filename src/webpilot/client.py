@@ -35,19 +35,19 @@ class WebPilotError(RuntimeError):
 
 
 def start_daemon() -> None:
-    log = open(config.home() / "daemon.log", "ab")
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-    subprocess.Popen(
-        [sys.executable, "-m", "webpilot", "serve"],
-        stdin=subprocess.DEVNULL,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        creationflags=flags,
-        start_new_session=sys.platform != "win32",
-        close_fds=True,
-    )
+    with open(config.home() / "daemon.log", "ab") as log:  # the daemon keeps its own copy of the handle
+        subprocess.Popen(
+            [sys.executable, "-m", "webpilot", "serve"],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            creationflags=flags,
+            start_new_session=sys.platform != "win32",
+            close_fds=True,
+        )
 
 
 def _request_body(headers: dict[str, str] | None, data: str | None, json_value: Any) -> tuple[dict, str | None]:

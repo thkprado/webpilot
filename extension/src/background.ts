@@ -117,12 +117,21 @@ async function handle(sock: WebSocket, req: { id: string; cmd: string; args?: Ar
 const getState = async () => (await chrome.storage.session.get(["currentTabId", "groupId"])) as State;
 const setState = (s: State) => chrome.storage.session.set(s);
 
+/** Without the trailing dot: "bank.com." is the same site as "bank.com". URL() already lowercases. */
+const bareHost = (h: string) => h.replace(/\.+$/, "");
+
+/** A blocked_domains entry as a hostname: "*.Bank.com", " bank.com. " and "https://bank.com/x" give "bank.com". */
+function blockedHost(entry: unknown): string {
+  const s = String(entry).trim().replace(/^[a-z][a-z\d+.-]*:\/\//i, "").replace(/^(\*?\.)+/, "");
+  try { return bareHost(new URL(`http://${s}`).hostname); } catch { return ""; }
+}
+
 function checkBlocked(url?: string) {
   if (!url || !config?.blockedDomains?.length) return;
   let host = "";
-  try { host = new URL(url).hostname; } catch { return; }
-  for (const d of config.blockedDomains) {
-    if (host === d || host.endsWith("." + d)) throw new Error(`domain blocked by WebPilot config: ${host}`);
+  try { host = bareHost(new URL(url).hostname); } catch { return; }
+  for (const d of config.blockedDomains.map(blockedHost)) {
+    if (d && (host === d || host.endsWith("." + d))) throw new Error(`domain blocked by WebPilot config: ${host}`);
   }
 }
 

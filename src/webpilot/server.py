@@ -31,6 +31,16 @@ NOT_CONNECTED = {
 }
 EXTENSION_ORIGINS = ("chrome-extension://", "extension://", "moz-extension://")
 DUPLICATE_PROFILE = 4001  # close code: another connected extension already uses this profile name
+BAD_REQUEST = "request must be a JSON object"
+
+
+def _parse(raw) -> dict | None:
+    """A message as a JSON object, or None for anything else."""
+    try:
+        msg = json.loads(raw)
+    except ValueError:
+        return None
+    return msg if isinstance(msg, dict) else None
 
 
 class Daemon:
@@ -50,10 +60,10 @@ class Daemon:
             await ws.close(1008, "origin not allowed")
             return
         try:
-            hello = json.loads(await asyncio.wait_for(ws.recv(), 5))
-        except (TimeoutError, ConnectionClosed, ValueError):
+            hello = _parse(await asyncio.wait_for(ws.recv(), 5))
+        except (TimeoutError, ConnectionClosed):
             return
-        if hello.get("type") != "hello" or not hmac.compare_digest(str(hello.get("token", "")), self.token):
+        if not hello or hello.get("type") != "hello" or not hmac.compare_digest(str(hello.get("token", "")), self.token):
             await ws.close(1008, "bad token")
             return
         if hello.get("role") == "extension":
@@ -76,11 +86,15 @@ class Daemon:
         log.info("extension connected: %s/%s", mode, profile)
         try:
             async for raw in ws:
-                msg = json.loads(raw)
+                msg = _parse(raw)
+                if msg is None:
+                    log.warning("ignoring malformed message from extension %s/%s", mode, profile)
+                    continue
                 if msg.get("type") == "ping":
                     await ws.send('{"type":"pong"}')
                     continue
-                entry = self.pending.pop(msg.get("id"), None)
+                rid = msg.get("id")
+                entry = self.pending.pop(rid, None) if isinstance(rid, str) else None
                 if entry and not entry[0].done():
                     entry[0].set_result(msg)
         except ConnectionClosed:
@@ -103,7 +117,11 @@ class Daemon:
         tasks: set[asyncio.Task] = set()
         try:
             async for raw in ws:
-                task = asyncio.create_task(self.client_request(ws, json.loads(raw)))
+                msg = _parse(raw)
+                if msg is None:
+                    await ws.send(json.dumps({"id": None, "ok": False, "error": BAD_REQUEST}))
+                    continue
+                task = asyncio.create_task(self.client_request(ws, msg))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
         except ConnectionClosed:

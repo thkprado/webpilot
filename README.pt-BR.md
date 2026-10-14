@@ -254,7 +254,7 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 | Screenshots | `~/.webpilot/screenshots/` |
 | Navegador temporário | Chromium do Playwright; perfil em `%TEMP%\webpilot-temp-*`, apagado por `webpilot temp stop` (ou `webpilot stop`, que também para o daemon); `webpilot temp start --headless` para modo headless. Ele inicia com a detecção de oclusão do Chromium desligada, então uma janela coberta por outras ainda recebe entrada real; uma minimizada não |
 
-- `blocked_domains` (por exemplo `["mybank.example.com"]`) impede que o agente navegue para esses domínios ou opere neles no navegador real.
+- `blocked_domains` (por exemplo `["mybank.example.com"]`) impede que o agente navegue para esses domínios e seus subdomínios, ou opere neles, no navegador real. Maiúsculas, um `*.` no início e um ponto no final não fazem diferença.
 - Variáveis de ambiente: `WEBPILOT_MODE=temp`, `WEBPILOT_SESSION=nome`, `WEBPILOT_PROFILE=nome`, `WEBPILOT_HEADLESS=1`, `WEBPILOT_PORT`, `WEBPILOT_DIR`, `WEBPILOT_PARSERS_DIR`.
 
 ### Solução de problemas

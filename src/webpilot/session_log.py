@@ -30,7 +30,7 @@ def sessions_dir() -> Path:
 def domain(url: str | None) -> str:
     if not url:
         return ""
-    host = urlparse(url).netloc.lower()
+    host = urlparse(url).hostname or ""  # never user:password@ or the port
     return host[4:] if host.startswith("www.") else host
 
 

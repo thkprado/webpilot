@@ -184,6 +184,34 @@ def test_web_origin_rejected(daemon):
             ws.recv(timeout=2)
 
 
+def test_malformed_client_requests_get_an_error(daemon):
+    with connect(f"ws://127.0.0.1:{daemon['port']}") as ws:
+        ws.send(json.dumps({"type": "hello", "role": "client", "token": daemon["token"]}))
+        assert json.loads(ws.recv(timeout=2))["type"] == "welcome"
+        for bad in ("not json", "[1, 2]"):
+            ws.send(bad)
+            assert json.loads(ws.recv(timeout=2)) == {"id": None, "ok": False, "error": "request must be a JSON object"}
+        ws.send(json.dumps({"id": "s", "cmd": "daemon.status"}))
+        assert json.loads(ws.recv(timeout=2))["ok"] is True  # the connection survived
+
+
+def test_malformed_extension_messages_are_ignored(daemon):
+    with connect(f"ws://127.0.0.1:{daemon['port']}", origin="chrome-extension://abc") as ext:
+        ext.send(json.dumps({"type": "hello", "role": "extension", "token": daemon["token"]}))
+        for bad in ("not json", "[1]", json.dumps({"id": ["x"], "ok": True})):
+            ext.send(bad)
+        ext.send(json.dumps({"type": "ping"}))
+        assert json.loads(ext.recv(timeout=2)) == {"type": "pong"}
+
+
+def test_session_log_domain_has_no_credentials_or_port():
+    from webpilot.session_log import domain
+
+    assert domain("https://user:pw@WWW.Example.com:8443/x") == "example.com"
+    assert domain("http://localhost:8000/") == "localhost"
+    assert domain(None) == ""
+
+
 def test_actions_are_logged_without_typed_text(daemon, tmp_path):
     ext = fake_extension(daemon["port"], daemon["token"])
     b = Browser("real", autostart=False)
