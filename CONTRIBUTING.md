@@ -30,6 +30,10 @@ CI runs the same checks. After rebuilding the extension, reload it in `edge://ex
   personal data (names, emails, addresses, IP-based location) before committing them.
 - `parsers_user/` is local and git-ignored; `examples/parsers_user/` is the versioned example.
 
+## Code of conduct
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By participating you agree to abide by it.
+
 ## Security
 
 Do not report vulnerabilities in public issues. See [SECURITY.md](SECURITY.md).
