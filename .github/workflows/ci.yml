@@ -24,6 +24,18 @@ jobs:
       - run: uv run ruff check
       - run: uv run pytest -q
 
+  # The floors in pyproject.toml are what users may get; uv.lock alone never tests them.
+  python-lowest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.11"
+      - run: uv venv
+      - run: uv pip install --resolution lowest-direct -e . --group dev
+      - run: uv run --no-sync pytest -q
+
   extension:
     runs-on: ubuntu-latest
     defaults:
