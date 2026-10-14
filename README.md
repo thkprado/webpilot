@@ -1,5 +1,7 @@
 # WebPilot
 
+**English** · [Português](README.pt-BR.md)
+
 Lets coding agents (Claude Code, Codex, Gemini CLI/Antigravity, pi, Cursor, or anything with a shell) drive a browser:
 
 - **real**: your own Edge/Chrome, with your sessions and logins, through the WebPilot extension.
@@ -10,6 +12,21 @@ Agent tabs in the real browser go into a purple tab group named **WebPilot**. **
 ---
 
 ## 1. Setup (once, by the user)
+
+### Let your AI set it up
+
+Do you use an AI coding assistant (Claude Code, Codex, Gemini CLI/Antigravity, Cursor, ...)? Paste this into it:
+
+```text
+Set up WebPilot on this machine for me: https://github.com/thkprado/webpilot - follow docs/AI_SETUP.md in that repository.
+```
+
+It checks your tools (Git, Python, uv, Node.js, Edge/Chrome), clones and builds the extension, configures the daemon and
+verifies it. The only thing it cannot do is click in your browser: it gives you the exact steps to load the extension
+(step "Load unpacked" below). It asks before touching any of your agent instruction files. The steps it follows are in
+[docs/AI_SETUP.md](docs/AI_SETUP.md).
+
+### Or do it yourself
 
 `<webpilot>` stands for the folder where you cloned this repository, for example `C:\src\webpilot` or `~/src/webpilot`.
 

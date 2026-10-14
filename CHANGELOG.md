@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- "Let your AI set it up" section in the README and the agent guide `docs/AI_SETUP.md`.
+- Portuguese README (`README.pt-BR.md`).
+
 ## [0.1.0] - 2026-10-14
 
 First public release.
