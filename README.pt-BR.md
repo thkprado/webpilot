@@ -27,7 +27,7 @@ Set up WebPilot on this machine for me: https://github.com/thkprado/webpilot - f
 Ele verifica as suas ferramentas (Git, Python, uv, Node.js, um navegador baseado em Chromium), clona e compila a extensão, configura o daemon e
 confere se está funcionando. A única coisa que ele não consegue fazer é clicar no seu navegador: ele passa o passo a passo
 exato para carregar a extensão (o passo "Carregar sem compactação" abaixo). No fim, ele oferece apresentar o WebPilot aos seus agentes,
-como skill (Claude Code, Codex) ou como nota nas instruções deles, e pergunta antes de gravar qualquer um dos dois. Os passos que ele segue estão em [docs/AI_SETUP.md](docs/AI_SETUP.md) (em inglês).
+como skill (Claude Code, Codex, Antigravity, pi, Copilot CLI) ou como nota nas instruções deles, e pergunta antes de gravar qualquer um dos dois. Os passos que ele segue estão em [docs/AI_SETUP.md](docs/AI_SETUP.md) (em inglês).
 
 ### Ou faça você mesmo
 
@@ -79,7 +79,24 @@ Real browser = the user's real accounts: never buy, send, delete, or change sett
 | Cursor | Settings → Rules → User Rules | `AGENTS.md` ou `.cursor/rules/webpilot.mdc` |
 | Qualquer outra com shell | o system prompt / arquivo de regras dela | `AGENTS.md` |
 
-As ferramentas que suportam Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) podem receber um `webpilot/SKILL.md`, com o frontmatter `name: webpilot` e `description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.` mais o mesmo corpo. Uma skill só é carregada quando é relevante, em vez de entrar em toda sessão.
+As ferramentas que suportam Agent Skills podem receber uma skill `webpilot` no lugar, com o mesmo texto: ela só é carregada quando a tarefa precisa do navegador, em vez de entrar em toda sessão. O `webpilot skill` instala para você:
+
+```bash
+webpilot skill list                      # ferramentas, se estão nesta máquina, estado da skill
+webpilot skill install claude pi         # as que você nomear; sem nome: pergunta uma a uma; --all: todas as encontradas
+webpilot skill install --project agy     # a pasta de skills deste projeto em vez da global
+webpilot skill uninstall copilot         # ou --all; só remove uma skill que ele mesmo gravou (--force para outras)
+```
+
+| Ferramenta (nome) | Skill global | Por projeto |
+|---|---|---|
+| Claude Code (`claude`) | `~/.claude/skills/webpilot/` | `.claude/skills/webpilot/` |
+| Codex CLI (`codex`) | `~/.codex/skills/webpilot/` | `.codex/skills/webpilot/` |
+| Antigravity IDE e agy CLI (`antigravity` ou `agy`) | `~/.gemini/config/skills/webpilot/` | `.agents/skills/webpilot/` |
+| pi (`pi`) | `~/.pi/agent/skills/webpilot/` | `.pi/skills/webpilot/` |
+| GitHub Copilot CLI (`copilot`) | `~/.copilot/skills/webpilot/` | `.github/skills/webpilot/` |
+
+A skill aponta para o `README.md` deste clone. Rode `webpilot skill install` de novo depois de mover o clone; `webpilot skill list` mostra `outdated` quando uma skill instalada difere da atual. O Copilot CLI também lê `~/.claude/skills/`, então numa máquina com os dois basta um deles.
 
 Sem `uv tool install`, troque `webpilot` no trecho por `uv run --project <webpilot> webpilot`.
 

@@ -100,26 +100,17 @@ Offer option 1 only for harnesses that support Agent Skills. Also ask whether it
 the default) or for one project only. Only after they choose, write the file, replacing `<webpilot>` with the absolute
 path (forward slashes are fine on Windows). If a file already exists there, show it and ask before replacing it.
 
-**Option 1: skill.** Create `webpilot/SKILL.md` in the harness's skills folder:
+**Option 1: skill.** Run `webpilot skill list` to see the supported harnesses and which are on this machine, then
+install for the ones the user chose (names: `claude`, `codex`, `antigravity` or `agy`, `pi`, `copilot`):
 
-| Harness | Global | Per project |
-|---|---|---|
-| Claude Code | `~/.claude/skills/webpilot/SKILL.md` | `.claude/skills/webpilot/SKILL.md` |
-| Codex CLI | `~/.codex/skills/webpilot/SKILL.md` | `.codex/skills/webpilot/SKILL.md` |
-| Other harness with Agent Skills | its skills folder | its project skills folder |
-
-```markdown
----
-name: webpilot
-description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.
----
-
-# Browser (WebPilot)
-To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
-It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
-Before first use in a session, read <webpilot>/README.md fully (sections 2+).
-Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
+```bash
+webpilot skill install claude pi            # global; add --project to use the current project's skills folder
 ```
+
+It writes `webpilot/SKILL.md` pointing at `<webpilot>/README.md` and refuses to replace a webpilot skill it did not
+write (if it reports one, show it to the user and ask before rerunning with `--force`). `webpilot skill uninstall NAME`
+removes it again. For a harness with Agent Skills that is not in that list, copy `src/webpilot/SKILL.md` into its
+skills folder as `webpilot/SKILL.md`, replacing `<readme>` with the absolute path of `<webpilot>/README.md`.
 
 Tell the user the skill becomes available in new sessions (Claude Code: also as `/webpilot`).
 

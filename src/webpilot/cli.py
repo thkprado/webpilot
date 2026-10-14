@@ -7,11 +7,12 @@ import re
 import sys
 import time
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 
 import typer
 
-from . import config, reflect, registry, session_log, temp_browser
+from . import config, reflect, registry, session_log, skills, temp_browser
 from .client import EXTENSION_WAIT, Browser, Connection, WebPilotError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, rich_markup_mode=None,
@@ -20,10 +21,12 @@ tab_app = typer.Typer(no_args_is_help=True, help="Manage tabs.")
 temp_app = typer.Typer(no_args_is_help=True, help="Temporary browser (Playwright Chromium, throwaway profile).")
 parser_app = typer.Typer(no_args_is_help=True, help="Site parsers.")
 profile_app = typer.Typer(no_args_is_help=True, help="Browser profiles that have the extension.")
+skill_app = typer.Typer(no_args_is_help=True, help="The webpilot skill for coding agents (Claude Code, Codex, Antigravity, pi, Copilot CLI).")
 app.add_typer(tab_app, name="tab")
 app.add_typer(temp_app, name="temp")
 app.add_typer(parser_app, name="parser")
 app.add_typer(profile_app, name="profile")
+app.add_typer(skill_app, name="skill")
 
 opts: dict = {"mode": None, "tab": None, "profile": None}
 
@@ -581,6 +584,75 @@ def script(ctx: typer.Context, name: Optional[str] = typer.Argument(None, help="
         raise WebPilotError(f"script not found: {path} (run `webpilot script` to list them)")
     sys.argv = [str(path), *ctx.args]
     runpy.run_path(str(path), run_name="__main__")
+
+
+# ------------------------------------------------------------------ agent skill
+
+HARNESS_ARG = typer.Argument(None, help=f"Harness(es): {', '.join(skills.HARNESSES)} (agy = antigravity).")
+ALL_OPT = typer.Option(False, "--all", help="Every harness found on this machine (install) or that has the skill (uninstall).")
+PROJECT_OPT = typer.Option(False, "--project", help="The current folder's project skills folder instead of the global one.")
+
+
+def pick_harnesses(names: Optional[list[str]], all_: bool, candidates: list, default) -> list:
+    """Harnesses named on the command line, all candidates with --all, or the ones the user picks when asked."""
+    if names:
+        try:
+            return list(dict.fromkeys(skills.resolve(n) for n in names))
+        except ValueError as e:
+            raise typer.BadParameter(str(e)) from None
+    if all_:
+        return candidates
+    if not sys.stdin.isatty():
+        raise typer.BadParameter(f"name the harness(es) ({', '.join(skills.HARNESSES)}) or pass --all")
+    return [h for h in candidates if typer.confirm(f"{h.label}?", default=default(h))]
+
+
+@skill_app.command("list")
+def skill_list(project: bool = PROJECT_OPT):
+    """Show each harness, whether it is on this machine, and the state of its webpilot skill."""
+    home, root = Path.home(), Path.cwd() if project else None
+    out([{"harness": h.name, "label": h.label, "detected": skills.detected(h, home),
+          "path": str(skills.skill_file(h, home, root)), "state": skills.state(h, home, root)}
+         for h in skills.HARNESSES.values()])
+
+
+@skill_app.command("install")
+def skill_install(harness: Optional[list[str]] = HARNESS_ARG, all_: bool = ALL_OPT, project: bool = PROJECT_OPT,
+                  force: bool = typer.Option(False, "--force", help="Replace a webpilot skill not written by this command.")):
+    """Install (or update) the webpilot skill. No harness given: asks for each one."""
+    home, root = Path.home(), Path.cwd() if project else None
+    everything = list(skills.HARNESSES.values())
+    chosen = pick_harnesses(harness, all_, [h for h in everything if skills.detected(h, home)] if all_ else everything,
+                            lambda h: skills.detected(h, home))
+    done, skipped = [], []
+    for h in chosen:
+        try:
+            done.append({"harness": h.name, "path": str(skills.install(h, home, root, force))})
+        except FileExistsError as e:
+            skipped.append({"harness": h.name, "reason": str(e)})
+    out({"installed": done, "skipped": skipped,
+         "note": "Start a new session in each agent to load the skill (Claude Code: also /webpilot)."})
+    if skipped:
+        raise typer.Exit(1)
+
+
+@skill_app.command("uninstall")
+def skill_uninstall(harness: Optional[list[str]] = HARNESS_ARG, all_: bool = ALL_OPT, project: bool = PROJECT_OPT,
+                    force: bool = typer.Option(False, "--force", help="Also remove a webpilot skill not written by this command.")):
+    """Remove the webpilot skill. No harness given: asks for each one that has it."""
+    home, root = Path.home(), Path.cwd() if project else None
+    present = [h for h in skills.HARNESSES.values() if skills.state(h, home, root) != "absent"]
+    removed, skipped = [], []
+    for h in pick_harnesses(harness, all_, present, lambda h: True):
+        st = skills.state(h, home, root)
+        if st == "foreign" and not force:
+            skipped.append({"harness": h.name, "reason": f"{skills.skill_file(h, home, root)} was not written by "
+                                                         "webpilot; pass --force to remove it"})
+        elif path := skills.uninstall(h, home, root, force):
+            removed.append({"harness": h.name, "path": str(path)})
+        else:
+            skipped.append({"harness": h.name, "reason": "not installed"})
+    out({"removed": removed, "skipped": skipped})
 
 
 # ------------------------------------------------------------------ temp browser

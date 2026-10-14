@@ -23,7 +23,7 @@ Set up WebPilot on this machine for me: https://github.com/thkprado/webpilot - f
 
 It checks your tools (Git, Python, uv, Node.js, a Chromium-based browser), clones and builds the extension, configures the daemon and
 verifies it. The only thing it cannot do is click in your browser: it gives you the exact steps to load the extension
-(step "Load unpacked" below). At the end it offers to make WebPilot known to your agents, as a skill (Claude Code, Codex) or a note in their instructions, and asks before writing either. The steps it follows are in
+(step "Load unpacked" below). At the end it offers to make WebPilot known to your agents, as a skill (Claude Code, Codex, Antigravity, pi, Copilot CLI) or a note in their instructions, and asks before writing either. The steps it follows are in
 [docs/AI_SETUP.md](docs/AI_SETUP.md).
 
 ### Or do it yourself
@@ -76,7 +76,24 @@ Real browser = the user's real accounts: never buy, send, delete, or change sett
 | Cursor | Settings → Rules → User Rules | `AGENTS.md` or `.cursor/rules/webpilot.mdc` |
 | Anything else with a shell | its system prompt / rules file | `AGENTS.md` |
 
-Harnesses that support Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) can get a `webpilot/SKILL.md` instead, with frontmatter `name: webpilot` and `description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.` plus the same body. A skill loads only when relevant instead of in every session.
+Harnesses that support Agent Skills can get a `webpilot` skill instead, with the same text: it loads only when a task needs the browser instead of in every session. `webpilot skill` installs it for you:
+
+```bash
+webpilot skill list                      # harnesses, whether they are on this machine, skill state
+webpilot skill install claude pi         # the ones you name; no name: asks for each; --all: every one found
+webpilot skill install --project agy     # this project's skills folder instead of the global one
+webpilot skill uninstall copilot         # or --all; only removes a skill it wrote (--force for others)
+```
+
+| Harness (name) | Global skill | Per project |
+|---|---|---|
+| Claude Code (`claude`) | `~/.claude/skills/webpilot/` | `.claude/skills/webpilot/` |
+| Codex CLI (`codex`) | `~/.codex/skills/webpilot/` | `.codex/skills/webpilot/` |
+| Antigravity IDE and agy CLI (`antigravity` or `agy`) | `~/.gemini/config/skills/webpilot/` | `.agents/skills/webpilot/` |
+| pi (`pi`) | `~/.pi/agent/skills/webpilot/` | `.pi/skills/webpilot/` |
+| GitHub Copilot CLI (`copilot`) | `~/.copilot/skills/webpilot/` | `.github/skills/webpilot/` |
+
+The skill points at this clone's `README.md`. Run `webpilot skill install` again after moving the clone; `webpilot skill list` shows `outdated` when an installed skill differs from the current one. Copilot CLI also reads `~/.claude/skills/`, so on a machine with both, one of the two is enough.
 
 Without `uv tool install`, replace `webpilot` in the snippet with `uv run --project <webpilot> webpilot`.
 
