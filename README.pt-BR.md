@@ -7,7 +7,7 @@
 
 Permite que agentes de código (Claude Code, Codex, Gemini CLI/Antigravity, pi, Cursor ou qualquer coisa com um shell) controlem um navegador:
 
-- **real**: o seu próprio Edge/Chrome, com as suas sessões e logins, por meio da extensão WebPilot.
+- **real**: o seu próprio navegador baseado em Chromium (Chrome, Edge, Brave, Vivaldi, Opera, ...), com as suas sessões e logins, por meio da extensão WebPilot.
 - **temp**: um Chromium temporário com um perfil descartável (`--temp`).
 
 As abas dos agentes no navegador real ficam num grupo de abas roxo chamado **WebPilot**. **Agentes: este arquivo é tudo o que vocês precisam. Leiam-no inteiro antes de usar o navegador.**
@@ -24,10 +24,10 @@ Você usa um assistente de código com IA (Claude Code, Codex, Gemini CLI/Antigr
 Set up WebPilot on this machine for me: https://github.com/thkprado/webpilot - follow docs/AI_SETUP.md in that repository.
 ```
 
-Ele verifica as suas ferramentas (Git, Python, uv, Node.js, Edge/Chrome), clona e compila a extensão, configura o daemon e
+Ele verifica as suas ferramentas (Git, Python, uv, Node.js, um navegador baseado em Chromium), clona e compila a extensão, configura o daemon e
 confere se está funcionando. A única coisa que ele não consegue fazer é clicar no seu navegador: ele passa o passo a passo
-exato para carregar a extensão (o passo "Carregar sem compactação" abaixo). Ele pergunta antes de mexer em qualquer arquivo
-de instruções dos seus agentes. Os passos que ele segue estão em [docs/AI_SETUP.md](docs/AI_SETUP.md) (em inglês).
+exato para carregar a extensão (o passo "Carregar sem compactação" abaixo). No fim, ele oferece apresentar o WebPilot aos seus agentes,
+como skill (Claude Code, Codex) ou como nota nas instruções deles, e pergunta antes de gravar qualquer um dos dois. Os passos que ele segue estão em [docs/AI_SETUP.md](docs/AI_SETUP.md) (em inglês).
 
 ### Ou faça você mesmo
 
@@ -41,7 +41,7 @@ uv run webpilot setup                                   # cria o token e extensi
 uv tool install --editable .                            # opcional: `webpilot` disponível em qualquer pasta
 ```
 
-No Edge, abra `edge://extensions`, ative o **Modo do desenvolvedor**, clique em **Carregar sem compactação** e escolha `extension/dist`. O ícone da extensão mostra um selo:
+Abra a página de extensões do navegador (`chrome://extensions`; Edge: `edge://extensions`, Opera: `opera://extensions`), ative o **Modo do desenvolvedor**, clique em **Carregar sem compactação** e escolha `extension/dist`. O ícone da extensão mostra um selo:
 
 | Selo | Significado |
 |---|---|
@@ -52,7 +52,7 @@ No Edge, abra `edge://extensions`, ative o **Modo do desenvolvedor**, clique em 
 
 Clique no ícone para abrir um popup com o estado da conexão e o nome deste perfil.
 
-**Vários perfis do Edge.** Carregue `extension/dist` do mesmo jeito em cada perfil; todos compartilham um único daemon. Cada perfil recebe um nome aleatório (`profile-1a2b`). Para renomeá-lo, clique no ícone da extensão naquele perfil e edite o nome no popup, ou use `webpilot profile list` (mostra a aba ativa de cada um) e `webpilot profile rename profile-1a2b work`. Com um só perfil conectado nada muda. Com vários, os comandos precisam de `--profile NOME` (ou `-p`), `WEBPILOT_PROFILE=NOME`, ou `"profile": "NOME"` em `~/.webpilot/config.json` como padrão; caso contrário falham e listam os nomes conectados.
+**Vários perfis ou navegadores.** Carregue `extension/dist` do mesmo jeito em cada perfil (ou navegador); todos compartilham um único daemon. Cada perfil recebe um nome aleatório (`profile-1a2b`). Para renomeá-lo, clique no ícone da extensão naquele perfil e edite o nome no popup, ou use `webpilot profile list` (mostra a aba ativa de cada um) e `webpilot profile rename profile-1a2b work`. Com um só perfil conectado nada muda. Com vários, os comandos precisam de `--profile NOME` (ou `-p`), `WEBPILOT_PROFILE=NOME`, ou `"profile": "NOME"` em `~/.webpilot/config.json` como padrão; caso contrário falham e listam os nomes conectados.
 
 O daemon (`webpilot serve`) inicia automaticamente em segundo plano. Ele escuta apenas em `127.0.0.1`, exige o token de `~/.webpilot/config.json` e rejeita conexões vindas de páginas web.
 
@@ -65,7 +65,7 @@ Os agentes só usam o WebPilot se as instruções deles o mencionarem. Rode `uv 
 ```markdown
 ## Browser (WebPilot)
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
-It drives the user's real Edge (logged-in sessions) or a temporary browser (`--temp`).
+It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
 Before first use in a session, read <webpilot>/README.md fully (sections 2+).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
@@ -79,7 +79,7 @@ Real browser = the user's real accounts: never buy, send, delete, or change sett
 | Cursor | Settings → Rules → User Rules | `AGENTS.md` ou `.cursor/rules/webpilot.mdc` |
 | Qualquer outra com shell | o system prompt / arquivo de regras dela | `AGENTS.md` |
 
-As ferramentas que suportam Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) podem receber um `webpilot/SKILL.md`, com o frontmatter `name: webpilot` e `description: Drive a web browser (real Edge or temporary). Use when browsing, searching or interacting with websites.` mais o mesmo corpo. Uma skill só é carregada quando é relevante, em vez de entrar em toda sessão.
+As ferramentas que suportam Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) podem receber um `webpilot/SKILL.md`, com o frontmatter `name: webpilot` e `description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.` mais o mesmo corpo. Uma skill só é carregada quando é relevante, em vez de entrar em toda sessão.
 
 Sem `uv tool install`, troque `webpilot` no trecho por `uv run --project <webpilot> webpilot`.
 
@@ -115,7 +115,7 @@ webpilot back | forward | reload
 webpilot captcha                         # clica em uma caixa "Não sou um robô" (sempre sob pedido)
 webpilot --temp <comando>                # usa o navegador temporário (inicia automaticamente)
 webpilot --tab ID <comando>              # age em uma aba específica uma vez
-webpilot -p NOME <comando>               # usa este perfil do Edge (só necessário quando vários estão conectados)
+webpilot -p NOME <comando>               # usa este perfil do navegador (só necessário quando vários estão conectados)
 webpilot profile list                    # perfis conectados e a aba ativa de cada um
 webpilot status                          # estado do daemon / da extensão
 ```
@@ -261,10 +261,10 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 
 | Erro | O que fazer |
 |---|---|
-| "extension (real browser) is not connected" | O Edge precisa estar aberto com a extensão carregada; confira o selo e o `webpilot status`. Depois de ficar ocioso, a primeira conexão pode levar até 30 s. |
+| "extension (real browser) is not connected" | O navegador precisa estar aberto com a extensão carregada; confira o selo e o `webpilot status`. Depois de ficar ocioso, a primeira conexão pode levar até 30 s. |
 | "several browser profiles are connected" | Pergunte ao usuário qual perfil usar e depois acrescente `-p NOME`. O usuário pode definir um padrão com `"profile"` em `~/.webpilot/config.json`. |
-| "browser profile 'X' is not connected" | A janela do Edge daquele perfil está fechada ou a extensão dele está desligada; o erro lista os nomes conectados. |
-| "could not run script in this tab" | Página restrita (`edge://`, a loja de extensões, PDF). Navegue para uma página normal. |
+| "browser profile 'X' is not connected" | A janela do navegador daquele perfil está fechada ou a extensão dele está desligada; o erro lista os nomes conectados. |
+| "could not run script in this tab" | Página restrita (`chrome://`, `edge://`, a loja de extensões, PDF). Navegue para uma página normal. |
 | `fetch`: "open the site first" | `fetch` roda a partir da página da aba atual: faça `goto` no site e repita. |
 | `fetch`: "C:/Program Files/Git/... is a Windows path" | O Git Bash reescreveu a URL relativa. Coloque `MSYS_NO_PATHCONV=1` antes do comando, ou passe a URL completa. |
 | "ref eN not found" / "ref eN (...) is gone" | A página navegou ou o elemento sumiu; rode `snapshot` de novo. |
@@ -274,8 +274,8 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 | "the browser window is minimized or covered, so real input would be lost" | Vindo de `--trusted`, `type --submit` ou `press`. Peça ao usuário que traga a janela do navegador para a frente, ou use `click`/`type` sem `--trusted`, `submit` em vez de `--submit`, ou `select`. |
 | O snapshot depois de uma ação ainda mostra "Loading..." | Acrescente `--wait-text`/`--wait-for` com algo do próximo estado, ou `wait --text "Loading" --gone`. |
 | O Google mostrou "unusual traffic" | Peça ao usuário que resolva o captcha, ou use `search -e ddg`. |
-| Console da extensão: "WebSocket connection to 'ws://127.0.0.1:8765/' failed: ... ERR_CONNECTION_REFUSED" | Normal enquanto o daemon não está rodando: a extensão tenta de novo a cada poucos segundos, para conectar assim que o daemon iniciar. Para silenciar, desligue a extensão em `edge://extensions` e ligue de novo antes de usar o WebPilot. |
-| Você mudou o código da extensão | Rode `npm run build` em `extension/` e depois clique em recarregar no card dela em `edge://extensions`. |
+| Console da extensão: "WebSocket connection to 'ws://127.0.0.1:8765/' failed: ... ERR_CONNECTION_REFUSED" | Normal enquanto o daemon não está rodando: a extensão tenta de novo a cada poucos segundos, para conectar assim que o daemon iniciar. Para silenciar, desligue a extensão na página de extensões do navegador e ligue de novo antes de usar o WebPilot. |
+| Você mudou o código da extensão | Rode `npm run build` em `extension/` e depois clique em recarregar no card dela na página de extensões do navegador. |
 
 ## 6. Arquitetura
 
@@ -283,7 +283,7 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 agent ──shell──> webpilot CLI / lib Python ──WebSocket──> daemon (127.0.0.1:8765)
                                                              │  só token + origem da extensão
                                     ┌────────────────────────┴──────────────────┐
-                           extensão no Edge (real)                 extensão no Chromium (temp)
+                           extensão no seu navegador (real)         extensão no Chromium (temp)
                            chrome.scripting / chrome.debugger       mesmo código, mode=temp
 ```
 

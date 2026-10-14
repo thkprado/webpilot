@@ -25,7 +25,7 @@ from websockets.exceptions import ConnectionClosed
 log = logging.getLogger("webpilot.daemon")
 
 NOT_CONNECTED = {
-    "real": "WebPilot extension (real browser) is not connected. Is Edge open with the extension "
+    "real": "WebPilot extension (real browser) is not connected. Is your browser open with the extension "
     "loaded? See `webpilot setup` and `webpilot status`.",
     "temp": "Temporary browser is not connected. Run `webpilot temp start`.",
 }

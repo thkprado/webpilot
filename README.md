@@ -4,7 +4,7 @@
 
 Lets coding agents (Claude Code, Codex, Gemini CLI/Antigravity, pi, Cursor, or anything with a shell) drive a browser:
 
-- **real**: your own Edge/Chrome, with your sessions and logins, through the WebPilot extension.
+- **real**: your own Chromium-based browser (Chrome, Edge, Brave, Vivaldi, Opera, ...), with your sessions and logins, through the WebPilot extension.
 - **temp**: a temporary Chromium with a throwaway profile (`--temp`).
 
 Agent tabs in the real browser go into a purple tab group named **WebPilot**. **Agents: this file is all you need. Read it fully before using the browser.**
@@ -21,9 +21,9 @@ Do you use an AI coding assistant (Claude Code, Codex, Gemini CLI/Antigravity, C
 Set up WebPilot on this machine for me: https://github.com/thkprado/webpilot - follow docs/AI_SETUP.md in that repository.
 ```
 
-It checks your tools (Git, Python, uv, Node.js, Edge/Chrome), clones and builds the extension, configures the daemon and
+It checks your tools (Git, Python, uv, Node.js, a Chromium-based browser), clones and builds the extension, configures the daemon and
 verifies it. The only thing it cannot do is click in your browser: it gives you the exact steps to load the extension
-(step "Load unpacked" below). It asks before touching any of your agent instruction files. The steps it follows are in
+(step "Load unpacked" below). At the end it offers to make WebPilot known to your agents, as a skill (Claude Code, Codex) or a note in their instructions, and asks before writing either. The steps it follows are in
 [docs/AI_SETUP.md](docs/AI_SETUP.md).
 
 ### Or do it yourself
@@ -38,7 +38,7 @@ uv run webpilot setup                                   # create token + extensi
 uv tool install --editable .                            # optional: `webpilot` available in any folder
 ```
 
-In Edge, open `edge://extensions`, turn on **Developer mode**, click **Load unpacked** and pick `extension/dist`. The extension icon shows a badge:
+Open your browser's extensions page (`chrome://extensions`; Edge: `edge://extensions`, Opera: `opera://extensions`), turn on **Developer mode**, click **Load unpacked** and pick `extension/dist`. The extension icon shows a badge:
 
 | Badge | Meaning |
 |---|---|
@@ -49,7 +49,7 @@ In Edge, open `edge://extensions`, turn on **Developer mode**, click **Load unpa
 
 Click the icon for a popup with the connection state and this profile's name.
 
-**Several Edge profiles.** Load `extension/dist` the same way in each profile; they all share one daemon. Each profile gets a random name (`profile-1a2b`). To rename it, click the extension icon in that profile and edit the name in the popup, or use `webpilot profile list` (shows the active tab of each) and `webpilot profile rename profile-1a2b work`. With one profile connected nothing changes. With several, commands need `--profile NAME` (or `-p`), `WEBPILOT_PROFILE=NAME`, or `"profile": "NAME"` in `~/.webpilot/config.json` as the default; otherwise they fail and list the connected names.
+**Several profiles or browsers.** Load `extension/dist` the same way in each profile (or browser); they all share one daemon. Each profile gets a random name (`profile-1a2b`). To rename it, click the extension icon in that profile and edit the name in the popup, or use `webpilot profile list` (shows the active tab of each) and `webpilot profile rename profile-1a2b work`. With one profile connected nothing changes. With several, commands need `--profile NAME` (or `-p`), `WEBPILOT_PROFILE=NAME`, or `"profile": "NAME"` in `~/.webpilot/config.json` as the default; otherwise they fail and list the connected names.
 
 The daemon (`webpilot serve`) starts automatically in the background. It listens only on `127.0.0.1`, requires the token from `~/.webpilot/config.json`, and rejects connections from web pages.
 
@@ -62,7 +62,7 @@ Agents only use WebPilot if their instructions mention it. Run `uv tool install 
 ```markdown
 ## Browser (WebPilot)
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
-It drives the user's real Edge (logged-in sessions) or a temporary browser (`--temp`).
+It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
 Before first use in a session, read <webpilot>/README.md fully (sections 2+).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
@@ -76,7 +76,7 @@ Real browser = the user's real accounts: never buy, send, delete, or change sett
 | Cursor | Settings → Rules → User Rules | `AGENTS.md` or `.cursor/rules/webpilot.mdc` |
 | Anything else with a shell | its system prompt / rules file | `AGENTS.md` |
 
-Harnesses that support Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) can get a `webpilot/SKILL.md` instead, with frontmatter `name: webpilot` and `description: Drive a web browser (real Edge or temporary). Use when browsing, searching or interacting with websites.` plus the same body. A skill loads only when relevant instead of in every session.
+Harnesses that support Agent Skills (Claude Code `~/.claude/skills/`, Codex `~/.codex/skills/`) can get a `webpilot/SKILL.md` instead, with frontmatter `name: webpilot` and `description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.` plus the same body. A skill loads only when relevant instead of in every session.
 
 Without `uv tool install`, replace `webpilot` in the snippet with `uv run --project <webpilot> webpilot`.
 
@@ -112,7 +112,7 @@ webpilot back | forward | reload
 webpilot captcha                         # click an "I'm not a robot" checkbox (always on request)
 webpilot --temp <command>                # use the temporary browser (starts automatically)
 webpilot --tab ID <command>              # act on a specific tab once
-webpilot -p NAME <command>               # use this Edge profile (only needed when several are connected)
+webpilot -p NAME <command>               # use this browser profile (only needed when several are connected)
 webpilot profile list                    # connected profiles and the active tab of each
 webpilot status                          # daemon / extension status
 ```
@@ -258,10 +258,10 @@ It reports domains read without a parser, repeated interactive flows (snapshots 
 
 | Error | What to do |
 |---|---|
-| "extension (real browser) is not connected" | Edge must be open with the extension loaded; check the badge and `webpilot status`. After it was idle, the first connection can take up to 30 s. |
+| "extension (real browser) is not connected" | The browser must be open with the extension loaded; check the badge and `webpilot status`. After it was idle, the first connection can take up to 30 s. |
 | "several browser profiles are connected" | Ask the user which profile to use, then add `-p NAME`. The user can set a default with `"profile"` in `~/.webpilot/config.json`. |
-| "browser profile 'X' is not connected" | That profile's Edge window is closed or its extension is off; the error lists the connected names. |
-| "could not run script in this tab" | Restricted page (`edge://`, the extension store, PDF). Navigate to a normal page. |
+| "browser profile 'X' is not connected" | That profile's browser window is closed or its extension is off; the error lists the connected names. |
+| "could not run script in this tab" | Restricted page (`chrome://`, `edge://`, the extension store, PDF). Navigate to a normal page. |
 | `fetch`: "open the site first" | `fetch` runs from the current tab's page: `goto` the site, then repeat. |
 | `fetch`: "C:/Program Files/Git/... is a Windows path" | Git Bash rewrote the relative URL. Prefix the command with `MSYS_NO_PATHCONV=1`, or pass the full URL. |
 | "ref eN not found" / "ref eN (...) is gone" | The page navigated or the element disappeared; run `snapshot` again. |
@@ -271,8 +271,8 @@ It reports domains read without a parser, repeated interactive flows (snapshots 
 | "the browser window is minimized or covered, so real input would be lost" | From `--trusted`, `type --submit` or `press`. Ask the user to bring the browser window to the front, or use `click`/`type` without `--trusted`, `submit` instead of `--submit`, or `select`. |
 | Snapshot after an action still shows "Loading..." | Add `--wait-text`/`--wait-for` with something from the next state, or `wait --text "Loading" --gone`. |
 | Google showed "unusual traffic" | Ask the user to solve the captcha, or use `search -e ddg`. |
-| Extension console: "WebSocket connection to 'ws://127.0.0.1:8765/' failed: ... ERR_CONNECTION_REFUSED" | Normal while the daemon is not running: the extension retries every few seconds so it connects as soon as the daemon starts. To silence it, turn the extension off in `edge://extensions` and back on before using WebPilot. |
-| You changed the extension code | Run `npm run build` in `extension/`, then click reload on the card in `edge://extensions`. |
+| Extension console: "WebSocket connection to 'ws://127.0.0.1:8765/' failed: ... ERR_CONNECTION_REFUSED" | Normal while the daemon is not running: the extension retries every few seconds so it connects as soon as the daemon starts. To silence it, turn the extension off on the browser's extensions page and back on before using WebPilot. |
+| You changed the extension code | Run `npm run build` in `extension/`, then click reload on its card on the browser's extensions page. |
 
 ## 6. Architecture
 
@@ -280,7 +280,7 @@ It reports domains read without a parser, repeated interactive flows (snapshots 
 agent ──shell──> webpilot CLI / Python lib ──WebSocket──> daemon (127.0.0.1:8765)
                                                              │  token + extension origin only
                                     ┌────────────────────────┴──────────────────┐
-                           extension in Edge (real)                 extension in Chromium (temp)
+                           extension in your browser (real)         extension in Chromium (temp)
                            chrome.scripting / chrome.debugger       same code, mode=temp
 ```
 

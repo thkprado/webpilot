@@ -10,7 +10,8 @@ what changes their configuration outside this folder.
   sentence before you start, and point them to the "Security and responsible use" section of `README.md`.
 - Do not store, print or send `~/.webpilot/config.json`: it holds the token that controls the browser.
 - Do not enable `auto_captcha`. It is opt-in and the user did not ask for it.
-- Do not edit global instruction files (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, ...) without asking first (step 7).
+- Do not edit global instruction files (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, ...) or skills folders
+  (`~/.claude/skills/`, ...) without asking first (step 7).
 
 ## 1. Check the machine
 
@@ -22,7 +23,7 @@ Run these and stop with a clear message to the user if something is missing (giv
 | Python 3.11+ | `python --version` (or `python3`) | https://www.python.org |
 | uv | `uv --version` | https://docs.astral.sh/uv/getting-started/installation/ |
 | Node.js 20+ and npm | `node --version`, `npm --version` | https://nodejs.org |
-| Microsoft Edge or Google Chrome (120+) | ask the user which one they use | |
+| A Chromium-based browser, 120+ (Chrome, Edge, Brave, Vivaldi, Opera, ...); Firefox and Safari are not supported | ask the user which one they use | |
 
 Detect the OS (Windows, macOS or Linux) to pick the right shell syntax and paths.
 
@@ -63,7 +64,8 @@ Run `webpilot setup` again after any change to `~/.webpilot/config.json`. If `uv
 
 You cannot click in the browser. Give the user exactly these steps, with the absolute path of `<webpilot>/extension/dist`:
 
-1. Open `edge://extensions` (Edge) or `chrome://extensions` (Chrome).
+1. Open the browser's extensions page: `chrome://extensions` (Chrome, Brave, Vivaldi and most others),
+   `edge://extensions` (Edge) or `opera://extensions` (Opera).
 2. Turn on **Developer mode**.
 3. Click **Load unpacked** and choose `<webpilot>/extension/dist`.
 4. If they use several browser profiles, repeat in each profile.
@@ -86,20 +88,56 @@ webpilot goto https://example.com -s
 
 ## 7. Make other agents aware of WebPilot (ask first)
 
-Ask the user: "Do you want me to add a short WebPilot note to your agent instructions so your agents use it?"
-Only if they say yes, add the snippet below to the file they choose (see the table in `README.md`, section
-"Making WebPilot known to other agents"), replacing `<webpilot>` with the absolute path:
+Agents only use WebPilot if something tells them about it. Find out which harness the user runs (you are probably
+one of them; they may use several), then ask:
+
+"How should your agents learn about WebPilot?
+1. **Skill** (recommended where supported): loads only when a task needs the browser.
+2. **Note in your agent instructions**: always in context, works in any harness.
+3. **Nothing for now.**"
+
+Offer option 1 only for harnesses that support Agent Skills. Also ask whether it should be global (all projects,
+the default) or for one project only. Only after they choose, write the file, replacing `<webpilot>` with the absolute
+path (forward slashes are fine on Windows). If a file already exists there, show it and ask before replacing it.
+
+**Option 1: skill.** Create `webpilot/SKILL.md` in the harness's skills folder:
+
+| Harness | Global | Per project |
+|---|---|---|
+| Claude Code | `~/.claude/skills/webpilot/SKILL.md` | `.claude/skills/webpilot/SKILL.md` |
+| Codex CLI | `~/.codex/skills/webpilot/SKILL.md` | `.codex/skills/webpilot/SKILL.md` |
+| Other harness with Agent Skills | its skills folder | its project skills folder |
 
 ```markdown
-## Browser (WebPilot)
+---
+name: webpilot
+description: Drive a web browser (the user's real Chromium-based browser, or a temporary one). Use when browsing, searching or interacting with websites.
+---
+
+# Browser (WebPilot)
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
-It drives the user's real Edge (logged-in sessions) or a temporary browser (`--temp`).
+It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
 Before first use in a session, read <webpilot>/README.md fully (sections 2+).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
 
+Tell the user the skill becomes available in new sessions (Claude Code: also as `/webpilot`).
+
+**Option 2: note in the instructions.** Add the snippet below to the file they choose (see the table in `README.md`,
+section "Making WebPilot known to other agents"). Append it; do not rewrite the rest of the file:
+
+```markdown
+## Browser (WebPilot)
+To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
+It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
+Before first use in a session, read <webpilot>/README.md fully (sections 2+).
+Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
+```
+
+In either option, if `uv tool install` did not work in step 4, replace `webpilot` with `uv run --project <webpilot> webpilot`.
+
 ## 8. Report
 
-Tell the user, briefly: what was installed and where, how you verified it, the browser profile name(s) detected,
+Tell the user, briefly: what was installed and where (including any skill or instruction file you wrote), how you verified it, the browser profile name(s) detected,
 and the one-line rule for agents (never act on real accounts without asking). Mention `blocked_domains` in
 `~/.webpilot/config.json` as the way to keep sites off limits, and `SECURITY.md` for the threat model.

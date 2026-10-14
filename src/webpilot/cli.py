@@ -15,7 +15,7 @@ from . import config, reflect, registry, session_log, temp_browser
 from .client import EXTENSION_WAIT, Browser, Connection, WebPilotError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, rich_markup_mode=None,
-                  help="Drive your real browser (Edge/Chrome + WebPilot extension) or a temporary one.")
+                  help="Drive your real browser (Chrome, Edge or another Chromium-based browser + WebPilot extension) or a temporary one.")
 tab_app = typer.Typer(no_args_is_help=True, help="Manage tabs.")
 temp_app = typer.Typer(no_args_is_help=True, help="Temporary browser (Playwright Chromium, throwaway profile).")
 parser_app = typer.Typer(no_args_is_help=True, help="Site parsers.")
@@ -66,7 +66,8 @@ def setup():
         raise WebPilotError(f"extension not built: run `npm install && npm run build` in {dist.parent}")
     path = config.write_extension_config(dist, cfg, "real")
     out(f"Wrote {path}\n\nLoad the extension once:\n"
-        f"  1. Open edge://extensions (or chrome://extensions) and enable Developer mode.\n"
+        f"  1. Open your browser's extensions page (chrome://extensions, edge://extensions, ...)\n"
+        f"     and enable Developer mode.\n"
         f"  2. Click 'Load unpacked' and select: {dist}\n"
         f"  3. Run `webpilot status` - the extension badge shows ON when connected.")
 

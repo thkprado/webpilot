@@ -2,7 +2,7 @@
 
     from webpilot import Browser
     with Browser() as b:                 # real browser; Browser("temp") for the temporary one,
-                                         # Browser(profile="work") to pick an Edge profile
+                                         # Browser(profile="work") to pick a browser profile
         b.goto("https://example.com")
         print(b.snapshot()["text"])
 """
