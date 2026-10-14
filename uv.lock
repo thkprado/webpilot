@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 
 [[package]]
@@ -363,9 +363,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "playwright", specifier = ">=1.48" },
-    { name = "selectolax", specifier = ">=1.0.0" },
-    { name = "typer", specifier = ">=0.27.3" },
-    { name = "websockets", specifier = ">=17.2" },
+    { name = "selectolax", specifier = ">=0.3.27" },
+    { name = "typer", specifier = ">=0.15.4" },
+    { name = "websockets", specifier = ">=15.0" },
 ]
 
 [package.metadata.requires-dev]

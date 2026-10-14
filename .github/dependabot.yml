@@ -14,6 +14,9 @@ updates:
       prefix: "Extension"
   - package-ecosystem: uv
     directory: /
+    # Bump only uv.lock: raising the floors in pyproject.toml would force
+    # newer versions on everyone who installs the package.
+    versioning-strategy: lockfile-only
     schedule:
       interval: weekly
     commit-message:

@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- The declared minimum versions of `typer` and `websockets` were too old to work: `websockets` below 15.0 lacks the sync client's `ping_interval`, and `typer` below 0.15.4 breaks with Click 8.2+. They are now `typer>=0.15.4` and `websockets>=15.0`; Dependabot only updates `uv.lock`, so routine bumps no longer raise these floors.
+
 ## [0.1.2] - 2026-10-14
 
 ### Added
