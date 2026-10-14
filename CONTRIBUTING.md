@@ -15,6 +15,7 @@ See the [README](README.md#1-setup-once-by-the-user) for building and loading th
 
 ```bash
 uv run pytest -q                                      # Python tests
+uv run ruff check                                     # Python lint
 cd extension && npm run typecheck && npm run build    # extension
 ```
 

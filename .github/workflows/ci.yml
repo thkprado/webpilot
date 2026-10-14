@@ -11,10 +11,17 @@ permissions:
 jobs:
   python:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Oldest supported and newest released.
+        python: ["3.11", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
-      - run: uv sync
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run ruff check
       - run: uv run pytest -q
 
   extension:

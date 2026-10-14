@@ -6,3 +6,15 @@ updates:
       interval: weekly
     commit-message:
       prefix: "CI"
+  - package-ecosystem: npm
+    directory: /extension
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "Extension"
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "Deps"

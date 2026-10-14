@@ -18,7 +18,10 @@ dependencies = [
 webpilot = "webpilot.cli:run"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.17.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -29,3 +32,10 @@ packages = ["src/webpilot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = ["tests/pages"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]  # errors, unused names and import order; no style rules
