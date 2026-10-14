@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WebPilot</title>
+<style>
+  :root { color-scheme: light dark; --muted: #6b6b6b; --on: #1b7f3b; --err: #b00020; }
+  @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a0; --on: #4cc472; --err: #ff6b7f; } }
+  body { font: 13px/1.4 system-ui, sans-serif; margin: 0; padding: 12px 14px; width: 260px; }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  .state { margin: 0 0 12px; padding-left: 14px; position: relative; }
+  .state::before { content: ""; position: absolute; left: 0; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .state.on::before { background: var(--on); }
+  .state.err { color: var(--err); }
+  .state.err::before { background: var(--err); }
+  label { display: block; color: var(--muted); margin-bottom: 4px; }
+  .row { display: flex; gap: 6px; }
+  input { flex: 1; min-width: 0; font: inherit; padding: 4px 6px; }
+  button { font: inherit; padding: 4px 10px; }
+  .msg { min-height: 1.4em; margin: 6px 0 0; color: var(--muted); }
+  .msg.err { color: var(--err); }
+</style>
+</head>
+<body>
+  <h1>WebPilot</h1>
+  <p id="state" class="state"></p>
+  <form id="form">
+    <label for="name">Name of this profile</label>
+    <div class="row">
+      <input id="name" maxlength="32" spellcheck="false" autocomplete="off">
+      <button type="submit">Save</button>
+    </div>
+  </form>
+  <p id="msg" class="msg"></p>
+  <script src="popup.js"></script>
+</body>
+</html>

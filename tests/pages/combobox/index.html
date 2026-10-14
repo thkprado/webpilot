@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebPilot combobox test page</title>
+  <style>
+    body { font: 16px system-ui, sans-serif; margin: 0 auto; max-width: 640px; padding: 24px 16px; }
+    /* Tall spacers so the fields sit below the fold: scrolling to a target is part of what is tested. */
+    .spacer { height: 70vh; border: 1px dashed #ccc; color: #888; padding: 8px; }
+    .field { margin: 24px 0; }
+    .field label { display: block; font-weight: 600; margin-bottom: 6px; }
+    #native { font: inherit; padding: 6px; width: 100%; }
+    pre { background: #f4f4f4; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Combobox test page</h1>
+  <p id="react-version"></p>
+  <div class="spacer">Spacer (the form is below)</div>
+  <div id="root"></div>
+  <div class="spacer">Spacer</div>
+  <!-- ?react=17: React 17 with a legacy root, like www.npmjs.com (see build.mjs) -->
+  <script>
+    const s = document.createElement("script");
+    s.src = /[?&]react=17/.test(location.search) ? "bundle17.js" : "bundle.js";
+    document.body.append(s);
+  </script>
+</body>
+</html>

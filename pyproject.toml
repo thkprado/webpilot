@@ -1,0 +1,31 @@
+[project]
+name = "webpilot"
+version = "0.1.0"
+description = "Drive your real Edge/Chrome browser, or a temporary one, from coding agents."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Thiago Kato Prado" }]
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.48",
+    "selectolax>=0.3.27",
+    "typer>=0.12",
+    "websockets>=14",
+]
+
+[project.scripts]
+webpilot = "webpilot.cli:run"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/webpilot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

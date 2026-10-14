@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "WebPilot",
+  "version": "0.1.0",
+  "description": "Lets local coding agents control this browser through the webpilot CLI.",
+  "minimum_chrome_version": "120",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["tabs", "tabGroups", "scripting", "debugger", "storage", "alarms", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "WebPilot",
+    "default_popup": "popup.html"
+  }
+}

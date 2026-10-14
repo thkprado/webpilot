@@ -1,0 +1,31 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security problems, **do not** open an issue: see SECURITY.md.
+        Remove tokens, cookies, personal data and private URLs from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you ran, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands and, if possible, a public page where it happens.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [real (extension), temp (--temp)]
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser and version, Python version, output of `webpilot status`.

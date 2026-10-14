@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+extension/node_modules/
+extension/dist/
+
+# Local parsers, fixtures, notes and scripts written by agents (start from examples/parsers_user)
+/parsers_user/
+
+# Secrets and captures that must never be committed
+.env
+.env.*
+*.har
+config.json
