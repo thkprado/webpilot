@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-14
+
+### Added
+- The AI setup guide (`docs/AI_SETUP.md`) offers to make WebPilot known to agents as an Agent Skill (Claude Code, Codex) or as a note in their instructions, globally or per project, and asks before writing either.
+
+### Changed
+- Docs, CLI messages and the package description name any Chromium-based browser (Chrome, Edge, Brave, Vivaldi, Opera, ...) instead of only Edge. The extension itself is unchanged.
+
 ## [0.1.1] - 2026-10-14
 
 ### Added
