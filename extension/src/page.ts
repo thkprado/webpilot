@@ -14,6 +14,8 @@ const BLOCK = new Set([
   "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li", "main",
   "nav", "ol", "p", "pre", "section", "table", "tr", "ul", "br", "summary", "caption", "thead", "tbody", "tfoot",
 ]);
+// Link targets that are code or inline payloads, not destinations; left out of snapshots.
+const SCRIPT_SCHEMES = new Set(["javascript:", "data:", "vbscript:"]);
 
 const w = globalThis as any;
 w.__wpRefCount = w.__wpRefCount || 0;
@@ -143,12 +145,14 @@ function describe(el: Element): string {
     extra += ` value="${clean(s.options[s.selectedIndex]?.text)}" options=[${opts}${s.options.length > 15 ? "|..." : ""}]`;
   } else if (tag === "a") {
     const href = el.getAttribute("href") || "";
-    let u = href;
+    let u = "";
     try {
+      // URL() trims and lowercases the scheme, so " JavaScript:" is caught too.
       const url = new URL(href, location.href);
-      u = url.origin === location.origin ? url.pathname + url.search + url.hash : url.href;
-    } catch { /* keep raw */ }
-    if (u && !u.startsWith("javascript:")) extra += ` -> ${clean(u, 100)}`;
+      if (!SCRIPT_SCHEMES.has(url.protocol))
+        u = url.origin === location.origin ? url.pathname + url.search + url.hash : url.href;
+    } catch { /* malformed href: nothing useful to show */ }
+    if (u) extra += ` -> ${clean(u, 100)}`;
   }
   if ((el as any).disabled) extra += " disabled";
   const exp = el.getAttribute("aria-expanded");

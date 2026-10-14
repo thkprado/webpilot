@@ -36,6 +36,17 @@ def test_google_results_have_fields():
             assert r["title"] and r["url"].startswith("http")
 
 
+def test_google_skips_only_google_hosts():
+    html = """<div id="rso">
+    <div><a href="https://maps.google.com/x"><h3>Maps</h3></a></div>
+    <div><a href="https://user:pw@Google.com:443/y"><h3>Google</h3></a></div>
+    <div><a href="https://notgoogle.com/z"><h3>Lookalike</h3></a></div>
+    <div><a href="https://google.com.evil.test/w"><h3>Suffix</h3></a></div>
+    </div>"""
+    urls = [r["url"] for r in registry.get("google").parse(html, "https://www.google.com/search?q=t")["results"]]
+    assert urls == ["https://notgoogle.com/z", "https://google.com.evil.test/w"]
+
+
 def test_duckduckgo_minimal_html():
     html = """<div class="result"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fa.test%2Fx">A</a>
     <a class="result__snippet">snip</a></div>

@@ -10,6 +10,12 @@ MATCH = [r"^https://www\.google\.[a-z.]+/search\?"]
 SNIPPET_SELECTORS = ["[data-sncf]", ".VwiC3b", '[style*="-webkit-line-clamp"]']
 
 
+def _is_google_host(host: str | None) -> bool:
+    """google.com or a subdomain of it; not lookalikes such as notgoogle.com."""
+    host = (host or "").lower()
+    return host == "google.com" or host.endswith(".google.com")
+
+
 def _result_container(node, root):
     """Highest ancestor that still contains a single result title."""
     container = node
@@ -49,7 +55,7 @@ def parse(html: str, url: str) -> dict:
         elif href.startswith("/goto?"):
             # Opaque redirect token (2026 layout); search.py resolves it to the real URL.
             href = "https://www.google.com" + href
-        elif not href.startswith("http") or urlparse(href).netloc.endswith("google.com"):
+        elif not href.startswith("http") or _is_google_host(urlparse(href).hostname):
             continue
         if href in seen:
             continue
