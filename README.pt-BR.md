@@ -58,6 +58,8 @@ O daemon (`webpilot serve`) inicia automaticamente em segundo plano. Ele escuta 
 
 Sem `uv tool install`, use `uv run --project <webpilot> webpilot ...`.
 
+**Atualizando.** Rode `update.bat` (Windows) ou `./update.sh` em `<webpilot>`: ele para o daemon, baixa o código mais novo (`git pull --ff-only`), recompila a extensão, roda `uv sync` e reinstala o comando `webpilot` se você o instalou com `uv tool install`. Depois clique em recarregar no card do WebPilot na página de extensões do navegador. `--no-pull` pula o pull, para recompilar depois de mudar o código você mesmo.
+
 ### Tornando o WebPilot conhecido por outros agentes
 
 Os agentes só usam o WebPilot se as instruções deles o mencionarem. Rode `uv tool install --editable .` primeiro (para que `webpilot` funcione em qualquer pasta; confira com `webpilot status`) e depois cole este trecho no arquivo de instruções de cada ferramenta, trocando `<webpilot>` pelo caminho absoluto da sua pasta do WebPilot. Ele só aponta para cá, então este README continua sendo a única fonte de verdade:

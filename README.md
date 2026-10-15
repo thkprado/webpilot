@@ -55,6 +55,8 @@ The daemon (`webpilot serve`) starts automatically in the background. It listens
 
 Without `uv tool install`, use `uv run --project <webpilot> webpilot ...`.
 
+**Updating.** Run `update.bat` (Windows) or `./update.sh` in `<webpilot>`: it stops the daemon, pulls the newest code (`git pull --ff-only`), rebuilds the extension, runs `uv sync`, and reinstalls the `webpilot` command if you installed it with `uv tool install`. Then click reload on the WebPilot card on the browser's extensions page. `--no-pull` skips the pull, to rebuild after changing the code yourself.
+
 ### Making WebPilot known to other agents
 
 Agents only use WebPilot if their instructions mention it. Run `uv tool install --editable .` first (so `webpilot` works in any folder; check with `webpilot status`), then paste this snippet into each harness's instruction file, replacing `<webpilot>` with the absolute path of your WebPilot folder. It only points here, so this README stays the single source of truth:

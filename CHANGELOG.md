@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `update.bat` (Windows) and `update.sh`: update a clone in one step. They stop the daemon, run `git pull --ff-only`, rebuild the extension (`npm ci` + `npm run build`), run `uv sync`, and reinstall the `webpilot` command when it was installed with `uv tool install`. `--no-pull` only rebuilds, after changing the code yourself. A `.gitattributes` keeps each launcher's line endings in every clone.
+
 ## [0.1.4] - 2026-10-14
 
 ### Added
