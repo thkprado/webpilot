@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Locked dependencies updated: playwright 1.64.0, selectolax 1.0.1, and ruff 0.17.1 for development.
+
 ## [0.1.5] - 2026-10-14
 
 ### Added
