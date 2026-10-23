@@ -2,6 +2,14 @@
 
 Goal: make the next session faster and cheaper by learning from this one's workflow.
 
+**Parser, script or notes?** Choose by where the data comes from:
+
+- Data in the page's static HTML: a pure parser (README §3).
+- Data from an API, or loaded dynamically after the page: a script in `parsers_user/scripts/` that uses the browser session (`fetch`, `webpilot.Browser`). A large API output is not a reason for an HTML parser.
+- An interactive flow (forms, wizards, filters): the steps in the notes, plus a script when the flow will be run again.
+
+A script documents its usage in its docstring and argparse `help=`; its note only points at it (`webpilot script <name>`), so the arguments live in one place. In the notes, keep what was confirmed apart from what was guessed: mark a guess `hypothesis:`, above all the cause of a timeout or an error.
+
 1. Run `webpilot reflect-data`. Add `--days 7` when the session was short or spanned several days.
 2. For each item under **Suggestions**:
    - **"Write a parser for X"**: if the site will be read again, open a representative page and follow README §3:
@@ -19,7 +27,11 @@ Goal: make the next session faster and cheaper by learning from this one's workf
    - **"Page never went quiet"**: the site keeps changing the DOM (a clock, an animation) or polling, so every action waited until the cap. Pass `--wait-text`/`--wait-for` with a marker of the next step (for checkboxes, `--wait-for "<target>:checked"`) and record it in `NOTES.md`.
    - **"Slow"**: consider `extract` instead of snapshot plus several clicks, or direct URLs (search/filter query strings) instead of navigating through the UI.
 3. Look at the session's commands as a whole. Are there multi-step sequences that will repeat, like login, filters or pagination? Record them in `parsers_user/NOTES.md` under a heading for the site, with the URLs and selectors that work. For loops, a small Python script using `webpilot.Browser` saved in `parsers_user/scripts/` is fine.
-4. Run `uv run --project <webpilot> pytest -q` to make sure every parser still passes.
-5. Report a short summary to the user: what was created or changed, and what was left as a suggestion.
+4. Run `uv run --project <webpilot> pytest -q` to make sure every parser still passes. This does not validate a script.
+5. Validate each new or changed script:
+   - `webpilot script` lists it with the right description, and `webpilot script <name> --help` shows its arguments.
+   - A bad argument, or a page or API that is missing, exits non-zero with a message saying what failed, never with empty output and exit 0.
+   - One representative run, when the session still has access, prints the format intended. If it could not be run, say so in the summary instead of calling it validated.
+6. Report a short summary to the user: what was created or changed, what was validated and how, and what was left as a suggestion.
 
 Do not create a parser for a site visited only once, and do not change sites' behaviour or the user's accounts during the reflection.

@@ -122,6 +122,7 @@ section "Making WebPilot known to other agents"). Append it; do not rewrite the 
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
 It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
 Before first use in a session, read <webpilot>/README.md fully (sections 2+).
+On a site you may have used before, first check its site notes and `webpilot script` (README §2).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
 

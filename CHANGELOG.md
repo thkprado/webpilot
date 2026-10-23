@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `webpilot script` with no name lists each script with the first line of its docstring, grouped by folder, marks the ones shadowed by a script of the same name in an earlier folder, and then lists the site notes (`NOTES.md`) found. Files that cannot be read or have a syntax error are reported on stderr with exit code 1; files starting with `_` are helpers and are not listed. With no scripts at all, it says where it searched and how to start from the example.
 
+### Changed
+- The `webpilot` skill and the instructions snippet tell agents to check the site notes and `webpilot script` before a flow on a site used before. README §2 has copyable `webpilot script` examples, says that brackets in the syntax lines mark optional parts, and starts the recommended workflow with the notes and scripts (notes are context, never permission to act). README §3 describes scripts and the lookup order shared by parsers, scripts and notes. Run `webpilot skill install` again to update an installed skill (`webpilot skill list` shows it `outdated`).
+- `docs/reflect.md` says when to write a parser, a script or notes, to mark guesses in the notes as `hypothesis:`, and how to validate a new script (`--help`, errors, a representative run); parser tests do not validate a script.
+- The example `hn_top` script documents its arguments with copyable lines and argparse help, and its note points at it.
+
 ### Fixed
 - `webpilot script` now looks in `WEBPILOT_PARSERS_DIR/scripts` before `parsers_user/scripts`, the same order as parsers, and warns when `WEBPILOT_PARSERS_DIR` is not a folder.
 - `webpilot script NAME --help` (or `-h`) shows the script's own help: everything after the name goes to the script. The script's exit code is the command's (argparse: `--help` 0, a bad argument 2), its folder is first on `sys.path` so it can import a sibling `_helper.py`, and "script not found" lists the folders searched.

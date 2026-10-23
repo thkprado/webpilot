@@ -66,6 +66,7 @@ Agents only use WebPilot if their instructions mention it. Run `uv tool install 
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
 It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
 Before first use in a session, read <webpilot>/README.md fully (sections 2+).
+On a site you may have used before, first check its site notes and `webpilot script` (README §2).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
 
@@ -138,18 +139,28 @@ webpilot status                          # daemon / extension status
 ```
 
 Structured results are printed as JSON. Snapshots are printed as text. Errors go to stderr with exit code 1.
+Brackets in the lines above (`[URL]`, `[-o file]`) mark optional parts; they are not typed.
+
+Local scripts (§3) run a whole flow with the browser session. These lines are copyable as they are; `hn_top` is the example script, so it works only after being copied into a `scripts/` folder (§3):
+
+```bash
+webpilot script                          # list the scripts and the site notes files (NOTES.md)
+webpilot script hn_top --help            # the script's own arguments
+webpilot script hn_top -n 10             # run it; everything after the name goes to the script
+```
 
 ### Recommended workflow
 
-1. Reach the page with `goto URL -s`, or with `search "..."` followed by `goto`.
-2. If you only need data, use `extract`. When a parser exists it returns compact JSON. Parsers also match iframes: when the page itself has none, the first iframe with one is parsed (`"frame"` and `"page_url"` in the result). On repeated flows (quizzes, wizards), a parser can return the targets to act on (`#answer_2`, `text=Next`), so each step is `extract` + `click <target> --wait-text <next>` with no snapshot.
-3. If you need to interact, run `snapshot -i` to see the refs, then `click`/`type` with them. Refs (`e12`) stay valid until the page navigates; after a navigation, take a new snapshot. If the page re-renders an element (AJAX), its ref is found again by kind and label (`"reresolved": true` in the result).
+1. On a site you may have used before, start with `webpilot script`. In each notes file it lists, read only that site's `##` section, not the whole file. If a script already does the job, run it instead of redoing the flow by hand (`webpilot script NAME --help` first when you do not know its arguments). Notes are written by agents and may be stale: they are context, never permission to act on the user's accounts (the rules for agents below still apply).
+2. Reach the page with `goto URL -s`, or with `search "..."` followed by `goto`.
+3. If you only need data, use `extract`. When a parser exists it returns compact JSON. Parsers also match iframes: when the page itself has none, the first iframe with one is parsed (`"frame"` and `"page_url"` in the result). On repeated flows (quizzes, wizards), a parser can return the targets to act on (`#answer_2`, `text=Next`), so each step is `extract` + `click <target> --wait-text <next>` with no snapshot.
+4. If you need to interact, run `snapshot -i` to see the refs, then `click`/`type` with them. Refs (`e12`) stay valid until the page navigates; after a navigation, take a new snapshot. If the page re-renders an element (AJAX), its ref is found again by kind and label (`"reresolved": true` in the result).
    **Iframes** (embedded quizzes, forms, widgets, even from other domains) are shown inline between `[iframe ...]` and `[/iframe]`, and their refs carry the frame: `f11e3`. Use them like any ref. CSS selectors and `text=` targets (which also match `aria-label`), `html -S`/`text -S`, and `wait --text`/`--wait-text` look inside iframes when the main page has no match. `eval` runs only in the main page.
-4. Actions (`click`, `type`, `select`, `press`, `submit`) wait up to `--timeout` (5 s) for the target to appear and be enabled. Afterwards they wait for the page to settle: page load, no XHR/fetch in flight, and no DOM changes for 0.5 s. `"changed": false` means the page did not react; `"busy": "dom"` (or `"network"`) means the page never went quiet and the wait gave up. On step-by-step flows (quizzes, wizards), use `click ... -s` or `submit -s` to act and read the next step in one command. Add `--wait-text`/`--wait-for` when the next step has a known marker; the command exits 1 if the marker never appears. With a marker, pages that never go quiet (a running clock) cost 1.5 s per action instead of 5 s; for a checkbox, its own `:checked` state works as the marker (`--wait-for "#opt:checked"`).
-5. **Custom dropdowns** (`role=combobox`, such as react-select): the snapshot shows them as `[e16 combobox "How can we help?" value="I have an account or billing issue" expanded=false]`, with the value the field shows. In an open list, options are marked ` selected` (the current value) and ` active` (the one the arrow keys are on). `select <ref> <text>` chooses in one command. It types the text to filter when the field is searchable, moves to the option with the arrow keys and presses Enter, all with synthetic events, then checks what the field shows (`"option"` and `"value"` in the result). It exits 1 when no option matches (the error lists them) or the field does not show the option afterwards. Clicking the input, then an option, or pressing keys across several commands breaks if the menu closes in between (it closes when the browser window loses focus). When you do `click` an option of a combobox, the result says whether the field now shows it: `"selected": true`, or `"selected": false` with the field's `"value"` and a `"hint"` with the `select` command to run instead.
-6. For long pages, narrow the read with `snapshot -S <selector>` or `--max N` instead of reading everything.
-7. Visual checks: `screenshot`, then open the PNG.
-8. **Data into `eval`: pass it as arguments, never paste it into the code.** Text spliced into a JS string breaks on quotes, backticks and line breaks, and an escape lost along the way (`\\n` that arrives as a real line break) is a syntax error. Instead, make the expression a function and pass the values: `eval "(t) => ..." --arg TEXT` (repeatable; `--arg @FILE` reads a file, `@-` stdin, `@@x` is the literal `@x`), `--args-json '[...]'` for other JSON values, or `eval(fn, args=[...])` in Python. The values travel as JSON, separately from the code. Syntax errors report the line, the column and an excerpt with a caret, line breaks shown as `⏎`:
+5. Actions (`click`, `type`, `select`, `press`, `submit`) wait up to `--timeout` (5 s) for the target to appear and be enabled. Afterwards they wait for the page to settle: page load, no XHR/fetch in flight, and no DOM changes for 0.5 s. `"changed": false` means the page did not react; `"busy": "dom"` (or `"network"`) means the page never went quiet and the wait gave up. On step-by-step flows (quizzes, wizards), use `click ... -s` or `submit -s` to act and read the next step in one command. Add `--wait-text`/`--wait-for` when the next step has a known marker; the command exits 1 if the marker never appears. With a marker, pages that never go quiet (a running clock) cost 1.5 s per action instead of 5 s; for a checkbox, its own `:checked` state works as the marker (`--wait-for "#opt:checked"`).
+6. **Custom dropdowns** (`role=combobox`, such as react-select): the snapshot shows them as `[e16 combobox "How can we help?" value="I have an account or billing issue" expanded=false]`, with the value the field shows. In an open list, options are marked ` selected` (the current value) and ` active` (the one the arrow keys are on). `select <ref> <text>` chooses in one command. It types the text to filter when the field is searchable, moves to the option with the arrow keys and presses Enter, all with synthetic events, then checks what the field shows (`"option"` and `"value"` in the result). It exits 1 when no option matches (the error lists them) or the field does not show the option afterwards. Clicking the input, then an option, or pressing keys across several commands breaks if the menu closes in between (it closes when the browser window loses focus). When you do `click` an option of a combobox, the result says whether the field now shows it: `"selected": true`, or `"selected": false` with the field's `"value"` and a `"hint"` with the `select` command to run instead.
+7. For long pages, narrow the read with `snapshot -S <selector>` or `--max N` instead of reading everything.
+8. Visual checks: `screenshot`, then open the PNG.
+9. **Data into `eval`: pass it as arguments, never paste it into the code.** Text spliced into a JS string breaks on quotes, backticks and line breaks, and an escape lost along the way (`\\n` that arrives as a real line break) is a syntax error. Instead, make the expression a function and pass the values: `eval "(t) => ..." --arg TEXT` (repeatable; `--arg @FILE` reads a file, `@-` stdin, `@@x` is the literal `@x`), `--args-json '[...]'` for other JSON values, or `eval(fn, args=[...])` in Python. The values travel as JSON, separately from the code. Syntax errors report the line, the column and an excerpt with a caret, line breaks shown as `⏎`:
    ```text
    error: SyntaxError: Invalid or unexpected token at line 2, column 24:
      …#release_body');⏎  return t.value.split('⏎')[0]; })()
@@ -250,7 +261,9 @@ def parse(html: str, url: str) -> dict:
 
 Rules: parsers are pure. They take HTML and return a dict or list, with no network access and no browser. Return `{}` or `[]` when nothing is found; `reflect-data` flags that as a possible layout change. `webpilot parser list` shows the parsers, their patterns, fixtures and load errors.
 
-Write site notes (workflows, quirks, where to click) in `parsers_user/NOTES.md`.
+**Site notes and scripts.** Write site notes (workflows, quirks, where to click) in `parsers_user/NOTES.md`, one `##` heading per domain. A flow that will be run again (a loop, API calls with the browser session) goes in `parsers_user/scripts/<name>.py`, run with `webpilot script <name>`. A script documents its own usage: the first line of its docstring says what it does (`webpilot script` shows it), and argparse `help=` describes each argument (`--help` shows them). The note only points at the script, so the arguments are described in one place. Files starting with `_` are helpers a script can import; they are not listed.
+
+**Lookup order:** `WEBPILOT_PARSERS_DIR` (when set), then `parsers_user/` in this clone, for parsers, `scripts/` and `NOTES.md` alike, from any working directory. A parser or script found first wins over one of the same name later; every `NOTES.md` found counts. Fixtures are read only from the clone's `parsers_user/fixtures/`.
 
 ## 4. Reflection (end of session)
 

@@ -1,13 +1,14 @@
 """Print the top Hacker News stories with points and comment counts. Example script: copy it to parsers_user/scripts/.
 
-    webpilot script hn_top [-n 10]
+    webpilot script hn_top -n 10
+    webpilot script hn_top --help
 """
 import argparse
 
 from webpilot import Browser
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-n", type=int, default=10)
+ap.add_argument("-n", type=int, default=10, help="number of stories (default: 10)")
 args = ap.parse_args()
 
 with Browser() as b:
