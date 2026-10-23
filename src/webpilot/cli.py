@@ -587,23 +587,55 @@ def parser_test(name: Optional[str] = typer.Argument(None, help="Parser name (de
     raise typer.Exit(1 if failed else 0)
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True,
+                                "allow_interspersed_args": False})
 def script(ctx: typer.Context, name: Optional[str] = typer.Argument(None, help="Script name (no .py).")):
-    """Run a script from parsers_user/scripts; extra arguments are passed to it. No name: list scripts."""
-    import ast
+    """Run a local script; everything after its name (--help too) is passed to it. No name: list scripts and notes.
+
+    Scripts are found in scripts/ of WEBPILOT_PARSERS_DIR, then of parsers_user/ (the first one wins by name).
+    """
     import runpy
 
-    scripts = config.PROJECT_ROOT / "parsers_user" / "scripts"
+    if (env := registry.env_dir()) and not env.is_dir():
+        print(f"warning: WEBPILOT_PARSERS_DIR is not a folder: {env}", file=sys.stderr)
+    searched = "\n".join(f"  {d}" for d in registry.script_dirs(existing=False))
     if not name:
-        for path in sorted(scripts.glob("*.py")):
-            doc = ast.get_docstring(ast.parse(path.read_text("utf-8"))) or ""
-            print(f"{path.stem:24} {doc.splitlines()[0] if doc else ''}")
+        list_scripts(searched)
         return
-    path = scripts / f"{name.removesuffix('.py')}.py"
-    if not path.exists():
-        raise WebPilotError(f"script not found: {path} (run `webpilot script` to list them)")
+    path = registry.find_script(name)
+    if path is None:
+        raise WebPilotError(f"script not found: {name}. Searched:\n{searched}\nRun `webpilot script` to list them.")
+    argv, sys_path = sys.argv, sys.path[:]
     sys.argv = [str(path), *ctx.args]
-    runpy.run_path(str(path), run_name="__main__")
+    sys.path.insert(0, str(path.parent))  # as `python script.py` does, so a script can import a sibling _helper.py
+    try:
+        runpy.run_path(str(path), run_name="__main__")  # its SystemExit (argparse: --help 0, bad argument 2) is ours
+    finally:
+        sys.argv, sys.path[:] = argv, sys_path
+
+
+def list_scripts(searched: str) -> None:
+    found, shadowed, errors = registry.scripts()
+    by_dir: dict[Path, list[str]] = {}
+    for s in found:
+        by_dir.setdefault(s.path.parent, []).append(f"  {s.name:24} {s.doc}".rstrip())
+    for path, by in shadowed:
+        by_dir.setdefault(path.parent, []).append(f"  {path.stem:24} (shadowed by {by})")
+    for d, lines in by_dir.items():
+        print(f"{d}:\n" + "\n".join(lines))
+    if not found and not shadowed and not errors:
+        root = registry.PROJECT_ROOT
+        hint = f"Copy {root / 'examples' / 'parsers_user' / 'scripts' / 'hn_top.py'} into one of them to start."
+        if not (root / "parsers_user").is_dir():
+            hint = f"To start from the example, run in {root}: cp -r examples/parsers_user parsers_user"
+        print(f"No scripts. Searched:\n{searched}\n{hint}")
+    notes = registry.notes_files()
+    if notes:
+        print("\nSite notes (read the site's ## section before a flow):\n" + "\n".join(f"  {n}" for n in notes))
+    for path, e in errors:
+        print(f"error: {path}: {e}", file=sys.stderr)
+    if errors:
+        raise typer.Exit(1)
 
 
 # ------------------------------------------------------------------ agent skill

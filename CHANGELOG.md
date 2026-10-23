@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `webpilot script` with no name lists each script with the first line of its docstring, grouped by folder, marks the ones shadowed by a script of the same name in an earlier folder, and then lists the site notes (`NOTES.md`) found. Files that cannot be read or have a syntax error are reported on stderr with exit code 1; files starting with `_` are helpers and are not listed. With no scripts at all, it says where it searched and how to start from the example.
+
+### Fixed
+- `webpilot script` now looks in `WEBPILOT_PARSERS_DIR/scripts` before `parsers_user/scripts`, the same order as parsers, and warns when `WEBPILOT_PARSERS_DIR` is not a folder.
+- `webpilot script NAME --help` (or `-h`) shows the script's own help: everything after the name goes to the script. The script's exit code is the command's (argparse: `--help` 0, a bad argument 2), its folder is first on `sys.path` so it can import a sibling `_helper.py`, and "script not found" lists the folders searched.
+
 ## [0.1.8] - 2026-10-23
 
 ### Added

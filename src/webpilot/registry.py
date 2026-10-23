@@ -5,10 +5,12 @@ A parser module defines:
     def parse(html: str, url: str) -> dict | list: ...
 
 Search order (first match wins): WEBPILOT_PARSERS_DIR, <project>/parsers_user, built-in webpilot/parsers.
+The user's folders also hold scripts (`scripts/*.py`, run by `webpilot script`) and site notes (`NOTES.md`).
 """
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import os
 import re
@@ -35,12 +37,70 @@ class Parser:
         return self.module.parse(html, url)
 
 
+@dataclass
+class Script:
+    name: str
+    path: Path
+    doc: str  # first line of the docstring
+
+
+def env_dir() -> Path | None:
+    value = os.environ.get("WEBPILOT_PARSERS_DIR")
+    return Path(value) if value else None
+
+
+def local_dirs(existing: bool = True) -> list[Path]:
+    """The user's folders in lookup order: WEBPILOT_PARSERS_DIR (when set), then <project>/parsers_user.
+
+    Deduplicated, since the variable may point at the clone's own folder. existing=False keeps missing
+    folders too, to say where a lookup searched.
+    """
+    dirs: list[Path] = []
+    for d in [env_dir(), PROJECT_ROOT / "parsers_user"]:
+        if d and (d.is_dir() or not existing) and d.resolve() not in {x.resolve() for x in dirs}:
+            dirs.append(d)
+    return dirs
+
+
 def parser_dirs() -> list[Path]:
-    dirs = []
-    if os.environ.get("WEBPILOT_PARSERS_DIR"):
-        dirs.append(Path(os.environ["WEBPILOT_PARSERS_DIR"]))
-    dirs += [PROJECT_ROOT / "parsers_user", BUILTIN_DIR]
-    return [d for d in dirs if d.is_dir()]
+    return local_dirs() + [BUILTIN_DIR]
+
+
+def script_dirs(existing: bool = True) -> list[Path]:
+    return [d / "scripts" for d in local_dirs(existing) if not existing or (d / "scripts").is_dir()]
+
+
+def notes_files() -> list[Path]:
+    """Every NOTES.md of the user's folders, in lookup order: notes have no name to shadow each other by."""
+    return [d / "NOTES.md" for d in local_dirs() if (d / "NOTES.md").is_file()]
+
+
+def scripts() -> tuple[list[Script], list[tuple[Path, Path]], list[tuple[Path, str]]]:
+    """Returns (scripts, shadowed as (path, shadowed by), read errors). Files starting with _ are helpers."""
+    found: list[Script] = []
+    shadowed: list[tuple[Path, Path]] = []
+    errors: list[tuple[Path, str]] = []
+    seen: dict[str, Path] = {}
+    for d in script_dirs():
+        for path in sorted(d.glob("*.py")):
+            if path.name.startswith("_"):
+                continue
+            if path.stem in seen:
+                shadowed.append((path, seen[path.stem]))
+                continue
+            seen[path.stem] = path  # a broken script still takes its name: running it finds this file
+            try:
+                doc = ast.get_docstring(ast.parse(path.read_text("utf-8"), str(path))) or ""
+            except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as e:
+                errors.append((path, f"{type(e).__name__}: {e}"))
+                continue
+            found.append(Script(path.stem, path, doc.strip().splitlines()[0] if doc.strip() else ""))
+    return found, shadowed, errors
+
+
+def find_script(name: str) -> Path | None:
+    stem = name.removesuffix(".py")
+    return next((d / f"{stem}.py" for d in script_dirs() if (d / f"{stem}.py").is_file()), None)
 
 
 def _load(path: Path) -> Parser:
