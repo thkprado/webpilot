@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-23
+
 ### Added
 - `eval --out FILE` (`-o`) writes the result to a file instead of stdout: a base64 data URL (such as a canvas's `toDataURL()`) is decoded to its bytes, any other string is written as text, and other values as JSON. It prints `{"saved", "bytes", "type"}` (`type` only for data URLs), and, like `html --out`, `reflect-data` does not count the saved result as a read.
 - The session log notes the type of an `eval` result that is a data URL (`data_url: image/png`, never the content), from the CLI and the Python API, and `reflect-data` gives large ones their own suggestion: write them with `eval --out FILE` instead of keeping them from stdout.
