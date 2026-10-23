@@ -260,7 +260,7 @@ Every action is logged in `~/.webpilot/sessions/<date>.jsonl`. Typed text is not
 webpilot reflect-data              # today's session; --days 7, --session NAME, --json
 ```
 
-It reports domains read without a parser, repeated interactive flows (snapshots taken only to find refs before clicking; iframe content counts for the iframe's domain), parser failures, empty parser results, large outputs, repeated errors and slow commands, each with a suggestion. The full procedure is in `docs/reflect.md`. In Claude Code, use `/reflect` in this project.
+It reports domains read without a parser, repeated interactive flows (snapshots taken only to find refs before clicking; iframe content counts for the iframe's domain), parser failures, empty parser results, large outputs, repeated errors and slow commands, each with a suggestion. The full procedure is in `docs/reflect.md`. In this project, use `/reflect` in Claude Code, or the `reflect` skill in Antigravity (`.agents/skills/`) and Copilot CLI (`.github/skills/`).
 
 ## 5. Reference
 

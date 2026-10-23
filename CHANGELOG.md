@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- The `reflect` skill for this project in Antigravity (`.agents/skills/reflect`) and GitHub Copilot CLI (`.github/skills/reflect`), alongside the `/reflect` command in Claude Code. It follows `docs/reflect.md`.
+
 ## [0.1.7] - 2026-10-23
 
 ### Added

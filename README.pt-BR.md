@@ -263,7 +263,7 @@ Toda ação é registrada em `~/.webpilot/sessions/<data>.jsonl`. O texto digita
 webpilot reflect-data              # sessão de hoje; --days 7, --session NOME, --json
 ```
 
-Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots tirados só para achar refs antes de clicar; o conteúdo de iframes conta para o domínio do iframe), falhas de parser, resultados vazios de parser, saídas grandes, erros repetidos e comandos lentos, cada um com uma sugestão. O procedimento completo está em `docs/reflect.md`. No Claude Code, use `/reflect` neste projeto.
+Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots tirados só para achar refs antes de clicar; o conteúdo de iframes conta para o domínio do iframe), falhas de parser, resultados vazios de parser, saídas grandes, erros repetidos e comandos lentos, cada um com uma sugestão. O procedimento completo está em `docs/reflect.md`. Neste projeto, use `/reflect` no Claude Code, ou a skill `reflect` no Antigravity (`.agents/skills/`) e no Copilot CLI (`.github/skills/`).
 
 ## 5. Referência
 
