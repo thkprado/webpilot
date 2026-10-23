@@ -127,6 +127,7 @@ webpilot html -S "#content" -o page.html # HTML bruto (grande! prefira snapshot/
 webpilot eval "document.title"           # JS na página; retorna JSON
 webpilot eval "fetch('/api/x').then(r=>r.json())" --timeout 300   # promises são aguardadas (padrão 60 s)
 webpilot eval "(t) => (document.querySelector('#body').value = t).length" --arg @notes.md   # dados como argumentos
+webpilot eval "document.querySelector('canvas').toDataURL()" --out chart.png   # para um arquivo; data URLs são decodificadas
 webpilot fetch /api/items [-H "K: V"] [--timeout 120] [-o arquivo] [--raw]   # HTTP com a sessão da aba; saída JSON
 webpilot screenshot [-o arquivo.png] [--full]   # imprime o caminho; abra a imagem para ver
 webpilot tabs | tab new [URL] | tab use ID | tab close [ID] | tab info

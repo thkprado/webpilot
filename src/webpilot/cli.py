@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import sys
@@ -286,11 +287,15 @@ def eval_(
     args_json: Optional[str] = typer.Option(None, "--args-json",
                                             help="Call EXPRESSION (a function) with the values of this JSON array "
                                                  "(or @FILE)."),
+    output: Optional[str] = typer.Option(None, "--out", "-o",
+                                         help="Write the result to a file: a base64 data URL is decoded, other "
+                                              "strings are written as text, other values as JSON."),
 ):
     """Evaluate JavaScript in the page (CSP-proof; promises are awaited). Prints the JSON result.
 
     With --arg or --args-json, EXPRESSION must be a function, called with those values; they are sent as
-    data, so long or quoted text needs no escaping: eval "(t) => t.length" --arg @notes.md"""
+    data, so long or quoted text needs no escaping: eval "(t) => t.length" --arg @notes.md
+    With --out, the result goes to a file: eval "document.querySelector('canvas').toDataURL()" -o chart.png"""
     if arg and args_json is not None:
         raise typer.BadParameter("use --arg or --args-json, not both", param_hint="--args-json")
     values: Optional[list] = None
@@ -300,7 +305,22 @@ def eval_(
             raise typer.BadParameter("must be a JSON array", param_hint="--args-json")
     elif arg:
         values = [read_value(a) for a in arg]
-    out(browser().eval(expression, timeout=timeout, args=values))
+    # Saved to a file, the result is not read by the agent (like `html -o`).
+    res = browser().eval(expression, timeout=timeout, args=values, _log={"purpose": "save"} if output else None)
+    if not output:
+        out(res)
+        return
+    data_url = re.fullmatch(r"data:([^,]*?);base64,(.*)", res, re.S) if isinstance(res, str) else None
+    if data_url:
+        content = base64.b64decode(data_url[2])
+    else:
+        content = (res if isinstance(res, str) else json.dumps(res, ensure_ascii=False, indent=2)).encode("utf-8")
+    with open(output, "wb") as f:
+        f.write(content)
+    saved = {"saved": output, "bytes": len(content)}
+    if data_url:
+        saved["type"] = data_url[1].split(";")[0] or "text/plain"
+    out(saved)
 
 
 @app.command()

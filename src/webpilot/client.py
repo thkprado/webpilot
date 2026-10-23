@@ -278,13 +278,14 @@ class Browser:
         path.write_bytes(base64.b64decode(result["data"]))
         return path.resolve()
 
-    def eval(self, expression: str, timeout: float = 60, args: list | tuple | None = None) -> Any:
+    def eval(self, expression: str, timeout: float = 60, args: list | tuple | None = None,
+             _log: dict | None = None) -> Any:
         """Evaluate JavaScript in the page; promises are awaited for up to `timeout` seconds.
 
         With `args`, `expression` must be a function, and it is called with those values:
         `eval("(text) => (document.querySelector('textarea').value = text)", args=[body])`.
         The values travel as JSON, separately from the code, so they need no escaping."""
-        return self.call("eval", _timeout=timeout, expression=expression,
+        return self.call("eval", _timeout=timeout, _log=_log, expression=expression,
                          args=list(args) if args is not None else None)
 
     def fetch(self, url: str, method: str = "GET", headers: dict[str, str] | None = None, data: str | None = None,

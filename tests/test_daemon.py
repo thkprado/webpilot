@@ -155,6 +155,42 @@ def test_eval_cli_reads_args_from_files_and_json(daemon, tmp_path):
     ext.close()
 
 
+def test_eval_out_writes_the_result_and_is_not_counted_as_a_read(daemon, tmp_path):
+    import base64
+
+    from typer.testing import CliRunner
+
+    from webpilot import reflect, session_log
+    from webpilot.cli import app
+
+    png = bytes(range(256)) * 200  # a canvas export: binary, and large once encoded
+    results = {"eval": "data:image/png;base64," + base64.b64encode(png).decode()}
+    ext = fake_extension(daemon["port"], daemon["token"], results=results)
+    runner = CliRunner()
+
+    def save(name: str) -> tuple[dict, bytes]:
+        path = tmp_path / name
+        result = runner.invoke(app, ["eval", "document.querySelector('canvas').toDataURL()", "--out", str(path)])
+        assert result.exit_code == 0, result.output
+        return json.loads(result.output), path.read_bytes()
+
+    printed, content = save("chart.png")
+    assert content == png
+    assert printed == {"saved": str(tmp_path / "chart.png"), "bytes": len(png), "type": "image/png"}
+    results["eval"] = "plain text, 'quoted'\n"
+    printed, content = save("note.txt")
+    assert content.decode("utf-8") == "plain text, 'quoted'\n" and "type" not in printed
+    results["eval"] = {"title": "Example", "n": 1}
+    printed, content = save("value.json")
+    assert json.loads(content) == {"title": "Example", "n": 1} and "type" not in printed
+    ext.close()
+
+    entries = session_log.read([session_log.session_name()])
+    chart = entries[-3]
+    assert chart["cmd"] == "eval" and chart["purpose"] == "save" and chart["out_chars"] > reflect.LARGE_OUTPUT
+    assert not [s for s in reflect.analyze(entries)["suggestions"] if "Large output" in s]
+
+
 def test_tab_override_is_sent(daemon):
     ext = fake_extension(daemon["port"], daemon["token"])
     b = Browser("real", tab=42, autostart=False)
