@@ -597,7 +597,7 @@ def script(ctx: typer.Context, name: Optional[str] = typer.Argument(None, help="
     import runpy
 
     if (env := registry.env_dir()) and not env.is_dir():
-        print(f"warning: WEBPILOT_PARSERS_DIR is not a folder: {env}", file=sys.stderr)
+        print(f"warning: WEBPILOT_PARSERS_DIR is not a folder: {env}", file=sys.stderr, flush=True)
     searched = "\n".join(f"  {d}" for d in registry.script_dirs(existing=False))
     if not name:
         list_scripts(searched)
@@ -633,7 +633,7 @@ def list_scripts(searched: str) -> None:
     if notes:
         print("\nSite notes (read the site's ## section before a flow):\n" + "\n".join(f"  {n}" for n in notes))
     for path, e in errors:
-        print(f"error: {path}: {e}", file=sys.stderr)
+        print(f"error: {path}: {e}", file=sys.stderr, flush=True)
     if errors:
         raise typer.Exit(1)
 

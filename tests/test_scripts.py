@@ -40,7 +40,11 @@ def write(path: Path, text: str) -> Path:
 
 
 def run(*args):
-    return CliRunner().invoke(cli.app, ["script", *args])
+    try:
+        runner = CliRunner(mix_stderr=False)  # click < 8.2 mixes stderr into stdout by default
+    except TypeError:
+        runner = CliRunner()  # click >= 8.2 always keeps stderr apart
+    return runner.invoke(cli.app, ["script", *args])
 
 
 def test_env_dir_comes_first_and_shadows(dirs):
