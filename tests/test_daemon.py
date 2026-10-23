@@ -188,6 +188,8 @@ def test_eval_out_writes_the_result_and_is_not_counted_as_a_read(daemon, tmp_pat
     entries = session_log.read([session_log.session_name()])
     chart = entries[-3]
     assert chart["cmd"] == "eval" and chart["purpose"] == "save" and chart["out_chars"] > reflect.LARGE_OUTPUT
+    assert chart["data_url"] == "image/png" and "base64" not in json.dumps(chart)  # the type only
+    assert "data_url" not in entries[-2] and "data_url" not in entries[-1]
     assert not [s for s in reflect.analyze(entries)["suggestions"] if "Large output" in s]
 
 

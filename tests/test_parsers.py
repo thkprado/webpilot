@@ -114,6 +114,23 @@ def test_reflect_groups_outputs_and_flags_busy_pages():
     assert "1 of them had no --wait-text" in text
 
 
+def test_reflect_points_data_urls_to_eval_out():
+    # A script exporting canvases keeps each data URL itself: not a page read to narrow down.
+    entries = [
+        {"cmd": "goto", "url": "https://example.com/chart", "ok": True, "session": "s1"},
+        {"cmd": "eval", "ok": True, "out_chars": 3000000, "data_url": "image/png", "session": "s1"},
+        {"cmd": "eval", "ok": True, "out_chars": 4000000, "data_url": "image/png", "session": "s1"},
+        {"cmd": "eval", "ok": True, "out_chars": 50000, "session": "s1"},  # a big value, not a data URL
+        {"cmd": "eval", "ok": True, "out_chars": 60000, "data_url": "image/jpeg", "session": "s2"},
+    ]
+    text = "\n".join(analyze(entries)["suggestions"])
+    assert ("`eval` returned 2 data URLs (image/png, up to 4000000 chars) on example.com: if a script keeps "
+            "them, write them with `eval --out FILE`, which decodes them.") in text
+    assert "`eval` returned a data URL (image/jpeg, up to 60000 chars): if" in text  # no URL in session s2
+    assert "Large output (50000 chars) from `eval` on example.com: use --selector" in text
+    assert "4000000 chars) from" not in text and " on :" not in text
+
+
 def test_example_parser():
     """The example in examples/parsers_user (what users copy to start their own parsers_user/)."""
     root = Path(__file__).parent.parent / "examples" / "parsers_user"

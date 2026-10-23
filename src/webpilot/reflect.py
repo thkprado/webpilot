@@ -37,6 +37,10 @@ def _credits(e: dict) -> list[tuple[str, int]]:
     return [(_domain(e.get("url")), top)] + [f for f in frames if f[0]]
 
 
+def _on(name: str) -> str:
+    return f" on {name}" if name else ""
+
+
 def analyze(entries: list[dict]) -> dict:
     commands = Counter(e["cmd"] for e in entries)
     domains: dict[str, dict] = defaultdict(lambda: {
@@ -49,11 +53,16 @@ def analyze(entries: list[dict]) -> dict:
     large: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> sizes
     slow: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> durations
     busy: dict[tuple, list[dict]] = defaultdict(list)  # (domain, reason) -> actions that never settled
+    data_urls: dict[str, list[dict]] = defaultdict(list)  # domain -> large eval results that were data URLs
+    last_url: dict = {}  # session -> last URL seen, for entries that carry none (eval)
 
     for i, e in enumerate(entries):
         d = domains[_domain(e.get("url"))] if e.get("url") else None
         cmd = e["cmd"]
         internal = e.get("purpose") in INTERNAL
+        if e.get("url"):
+            last_url[e.get("session")] = e["url"]
+        where = _domain(e.get("url") or last_url.get(e.get("session")))
         if d is not None:
             if cmd in ("goto", "tab.new"):
                 d["visits"] += 1
@@ -77,9 +86,12 @@ def analyze(entries: list[dict]) -> dict:
         if cmd == "extract" and e.get("parser") and e.get("empty"):
             empty_parses[e["parser"]] += 1
         if not internal and (e.get("out_chars") or 0) > LARGE_OUTPUT:
-            large[(cmd, _domain(e.get("url")))].append(e["out_chars"])
+            if e.get("data_url"):
+                data_urls[where].append(e)
+            else:
+                large[(cmd, where)].append(e["out_chars"])
         if (e.get("ms") or 0) > SLOW_MS:
-            slow[(cmd, _domain(e.get("url")))].append(e["ms"])
+            slow[(cmd, where)].append(e["ms"])
         if e.get("busy"):
             busy[(e.get("frame_domain") or _domain(e.get("url")), e["busy"])].append(e)
 
@@ -111,7 +123,14 @@ def analyze(entries: list[dict]) -> dict:
     for (cmd, name), sizes in sorted(large.items(), key=lambda kv: -sum(kv[1]))[:5]:
         times = f"{len(sizes)}x, up to " if len(sizes) > 1 else ""
         suggestions.append(
-            f"Large output ({times}{max(sizes)} chars) from `{cmd}` on {name}: use --selector/--interactive or a parser."
+            f"Large output ({times}{max(sizes)} chars) from `{cmd}`{_on(name)}: use --selector/--interactive or a parser."
+        )
+    for name, evals in sorted(data_urls.items(), key=lambda kv: -sum(e["out_chars"] for e in kv[1])):
+        types = ", ".join(sorted({e["data_url"] for e in evals}))
+        count, them = (f"{len(evals)} data URLs", "them") if len(evals) > 1 else ("a data URL", "it")
+        suggestions.append(
+            f"`eval` returned {count} ({types}, up to {max(e['out_chars'] for e in evals)} chars){_on(name)}: "
+            f"if a script keeps {them}, write {them} with `eval --out FILE`, which decodes {them}."
         )
     for (name, reason), acts in sorted(busy.items(), key=lambda kv: -len(kv[1])):
         if len(acts) < BUSY_ACTIONS:
@@ -126,7 +145,7 @@ def analyze(entries: list[dict]) -> dict:
         )
     for (cmd, name), times in sorted(slow.items(), key=lambda kv: -max(kv[1]))[:5]:
         count = f"{len(times)}x, up to " if len(times) > 1 else ""
-        suggestions.append(f"Slow `{cmd}` ({count}{max(times)} ms) on {name}.")
+        suggestions.append(f"Slow `{cmd}` ({count}{max(times)} ms){_on(name)}.")
 
     return {
         "entries": len(entries),

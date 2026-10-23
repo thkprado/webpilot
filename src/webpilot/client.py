@@ -196,6 +196,8 @@ class Browser:
                     # such as `url` or `body` in it are data. Only its size is logged.
                     if error is None:
                         entry["out_chars"] = _out_chars(result)
+                        if isinstance(result, str) and result.startswith("data:"):  # the type only, never the content
+                            entry["data_url"] = result[5:105].split(",", 1)[0].split(";")[0] or "text/plain"
                 elif isinstance(result, dict):
                     if result.get("url"):
                         entry["url"] = result["url"]
