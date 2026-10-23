@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WebPilot",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Lets local coding agents control this browser through the webpilot CLI.",
   "minimum_chrome_version": "120",
   "background": {

@@ -1,6 +1,6 @@
 [project]
 name = "webpilot"
-version = "0.1.8"
+version = "0.1.9"
 description = "Drive your real Chromium-based browser (Chrome, Edge, Brave, ...), or a temporary one, from coding agents."
 readme = "README.md"
 license = "MIT"

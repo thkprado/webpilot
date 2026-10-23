@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-10-23
+
 ### Added
 - `webpilot script` with no name lists each script with the first line of its docstring, grouped by folder, marks the ones shadowed by a script of the same name in an earlier folder, and then lists the site notes (`NOTES.md`) found. Files that cannot be read or have a syntax error are reported on stderr with exit code 1; files starting with `_` are helpers and are not listed. With no scripts at all, it says where it searched and how to start from the example.
 
