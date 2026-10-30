@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-10-30
+
+### Changed
+- Locked dependencies updated: playwright 1.64.1 (its bundled Node.js 24.22.1 distrusts the compromised eMudhra intermediate CAs), selectolax 1.0.2 and websockets 17.3, plus ruff 0.17.2 and `@types/chrome` 0.3.6 for development.
+
 ## [0.1.9] - 2026-10-23
 
 ### Added
