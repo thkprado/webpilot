@@ -483,10 +483,14 @@ def wait(
     timeout: float = typer.Option(10, "--timeout"),
     gone: bool = typer.Option(False, "--gone", help="Wait until it disappears instead."),
 ):
-    """Wait for a selector to be visible and/or text to appear (or, with --gone, to disappear)."""
+    """Wait for a selector to be visible and/or text to appear (or, with --gone, to disappear). Exit 1 on timeout."""
     if not selector and not text_:
         raise WebPilotError("give --selector and/or --text")
-    out(browser().wait(selector, text_, timeout, gone))
+    res = browser().wait(selector, text_, timeout, gone)
+    out(res)
+    if res.get("found") is False:
+        what = " and ".join(f"{name} {value!r}" for name, value in (("selector", selector), ("text", text_)) if value)
+        raise WebPilotError(f"{what} did not {'disappear' if gone else 'appear'} within {timeout:g} s")
 
 
 @app.command()

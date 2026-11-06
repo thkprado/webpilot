@@ -119,7 +119,7 @@ webpilot type "select#country" "Brazil"  # escolhe uma opção de <select> pelo 
 webpilot select e16 "billing"            # escolhe em um dropdown customizado (role=combobox, react-select) ou <select>
 webpilot press Escape                    # teclas: Enter Tab Escape ArrowDown PageDown a Control+a ...
 webpilot scroll down | up | top | bottom | e40
-webpilot wait --text "Order confirmed" --timeout 20
+webpilot wait --text "Order confirmed" --timeout 20  # exit 1 se não aparecer a tempo
 webpilot wait --text "Loading" --gone    # espera até desaparecer
 webpilot extract [URL]                   # JSON do parser do site, ou snapshot + dica se não houver parser
 webpilot search "query" -n 5             # Google (padrão) | -e ddg ; imprime JSON com título/url/trecho
@@ -195,7 +195,7 @@ with Browser() as b:                    # Browser("temp") para o navegador tempo
     results = b.search("python uv", n=5)["results"]
 ```
 
-Métodos: `goto, back, forward, reload, snapshot, html, text, click, type, select, press, submit, scroll, wait, eval, fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`. `click`/`type`/`select`/`press`/`submit` aceitam `timeout=`, `wait_text=`, `wait_selector=` e `wait_timeout=`. `eval(expression, timeout=60, args=None)` aguarda promises por até `timeout` segundos; com `args` (uma lista de valores JSON), `expression` precisa ser uma função e é chamada com eles, e só o número e o tamanho deles vão para o log da sessão. `fetch(url, method="GET", headers=None, data=None, json=None, timeout=120, allow_write=False, raw=False)` retorna `{"status", "statusText", "url", "headers", "body"}`; `body` é JSON interpretado (a menos que `raw`), texto, ou bytes para conteúdo binário.
+Métodos: `goto, back, forward, reload, snapshot, html, text, click, type, select, press, submit, scroll, wait, eval, fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`. `click`/`type`/`select`/`press`/`submit` aceitam `timeout=`, `wait_text=`, `wait_selector=` e `wait_timeout=`; o resultado deles tem `waited: {"found", "ms"}`. `wait(selector=None, text=None, timeout=10, gone=False)` devolve `{"found", "ms"}` e não lança exceção quando o tempo esgota: confira `found`. `eval(expression, timeout=60, args=None)` aguarda promises por até `timeout` segundos; com `args` (uma lista de valores JSON), `expression` precisa ser uma função e é chamada com eles, e só o número e o tamanho deles vão para o log da sessão. `fetch(url, method="GET", headers=None, data=None, json=None, timeout=120, allow_write=False, raw=False)` retorna `{"status", "statusText", "url", "headers", "body"}`; `body` é JSON interpretado (a menos que `raw`), texto, ou bytes para conteúdo binário.
 
 Rode scripts com `uv run --project <webpilot> python script.py`.
 

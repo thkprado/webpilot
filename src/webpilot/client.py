@@ -205,6 +205,8 @@ class Browser:
                                                     or result.get("bodyBase64"))
                     if cmd == "fetch":
                         entry["status"] = result.get("status")
+                    if result.get("found") is False or (result.get("waited") or {}).get("found") is False:
+                        entry["wait_missed"] = True  # `wait`, or an action's --wait-text/--wait-for, timed out
                     if result.get("busy"):  # the page never went quiet after an action
                         entry["busy"] = result["busy"]
                     if result.get("frameUrl"):  # the action ran inside an iframe (domain only, like frames)

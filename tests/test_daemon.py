@@ -129,6 +129,37 @@ def test_results_that_are_not_text_are_logged_by_size(daemon):
     assert fetch_entry["out_chars"] == len(json.dumps({"items": [1, 2, 3]}, ensure_ascii=False))
 
 
+def test_wait_that_times_out_exits_1_and_is_logged_as_missed(daemon):
+    from typer.testing import CliRunner
+
+    from webpilot import session_log
+    from webpilot.cli import app
+
+    results = {"wait": {"found": False, "ms": 2000},
+               "click": {"desc": "button", "url": "https://x.test/", "waited": {"found": False, "ms": 1000}}}
+    ext = fake_extension(daemon["port"], daemon["token"], results=results)
+    runner = CliRunner()
+    missed = runner.invoke(app, ["wait", "--text", "shared-ok", "--timeout", "2"])
+    assert missed.exit_code == 1 and '"found": false' in missed.output
+    assert str(missed.exception) == "text 'shared-ok' did not appear within 2 s"
+    gone = runner.invoke(app, ["wait", "-S", "#spinner", "--gone", "--timeout", "2"])
+    assert gone.exit_code == 1 and str(gone.exception) == "selector '#spinner' did not disappear within 2 s"
+    # The API still returns the result: scripts check `found`.
+    assert Browser("real", autostart=False).wait(text="x")["found"] is False
+    ext.close()
+
+    ext = fake_extension(daemon["port"], daemon["token"], results={"wait": {"found": True, "ms": 5}})
+    assert runner.invoke(app, ["wait", "--text", "here"]).exit_code == 0
+    ext.close()
+    ext = fake_extension(daemon["port"], daemon["token"], results=results)
+    Browser("real", autostart=False).click("e1", wait_text="Step 2")
+    ext.close()
+
+    entries = [e for e in session_log.read([session_log.session_name()]) if e["cmd"] in ("wait", "click")]
+    assert [(e["cmd"], e.get("wait_missed", False)) for e in entries] == [
+        ("wait", True), ("wait", True), ("wait", True), ("wait", False), ("click", True)]
+
+
 def test_eval_cli_reads_args_from_files_and_json(daemon, tmp_path):
     from typer.testing import CliRunner
 

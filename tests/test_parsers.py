@@ -114,6 +114,21 @@ def test_reflect_groups_outputs_and_flags_busy_pages():
     assert "1 of them had no --wait-text" in text
 
 
+def test_reflect_reports_waits_that_timed_out_instead_of_slow():
+    entries = [
+        {"cmd": "goto", "url": "https://editor.test/", "ok": True, "session": "s"},
+        {"cmd": "wait", "ok": True, "ms": 30234, "wait_missed": True, "session": "s"},
+        {"cmd": "wait", "ok": True, "ms": 30041, "wait_missed": True, "session": "s"},
+        {"cmd": "wait", "ok": True, "ms": 16000, "session": "s"},  # found, only slow
+        {"cmd": "click", "url": "https://editor.test/", "ok": True, "ms": 11000, "wait_missed": True, "session": "s"},
+    ]
+    text = "\n".join(analyze(entries)["suggestions"])
+    assert "`wait` timed out 2x on editor.test (up to 30234 ms): the marker never came" in text
+    assert "--wait-text/--wait-for of `click` timed out once on editor.test (up to 11000 ms)" in text
+    assert "Slow `wait` (16000 ms) on editor.test." in text
+    assert "30234 ms)." not in text  # a miss is not also reported as slow
+
+
 def test_reflect_points_data_urls_to_eval_out():
     # A script exporting canvases keeps each data URL itself: not a page read to narrow down.
     entries = [

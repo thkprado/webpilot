@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `webpilot wait` exits with code 1 when the text or selector does not appear (or, with `--gone`, does not disappear) within `--timeout`, like `--wait-text`/`--wait-for` on actions; the JSON result (`found: false`) is still printed. Before, it exited 0, and an agent went on as if it had appeared. The Python API is unchanged: `Browser.wait()` returns `{"found", "ms"}`, now documented in the README.
+- The session log marks waits that timed out (`wait_missed`), from `wait` or from an action's `--wait-text`/`--wait-for`, and `reflect-data` reports them as "timed out" with what to check, instead of as a "Slow `wait`".
+
 ## [0.1.10] - 2026-10-30
 
 ### Changed

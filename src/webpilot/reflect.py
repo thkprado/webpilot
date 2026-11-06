@@ -52,6 +52,7 @@ def analyze(entries: list[dict]) -> dict:
     empty_parses: Counter = Counter()
     large: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> sizes
     slow: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> durations
+    missed: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> durations of waits that timed out
     busy: dict[tuple, list[dict]] = defaultdict(list)  # (domain, reason) -> actions that never settled
     data_urls: dict[str, list[dict]] = defaultdict(list)  # domain -> large eval results that were data URLs
     last_url: dict = {}  # session -> last URL seen, for entries that carry none (eval)
@@ -90,7 +91,9 @@ def analyze(entries: list[dict]) -> dict:
                 data_urls[where].append(e)
             else:
                 large[(cmd, where)].append(e["out_chars"])
-        if (e.get("ms") or 0) > SLOW_MS:
+        if e.get("wait_missed"):
+            missed[(cmd, where)].append(e.get("ms") or 0)
+        elif (e.get("ms") or 0) > SLOW_MS:
             slow[(cmd, where)].append(e["ms"])
         if e.get("busy"):
             busy[(e.get("frame_domain") or _domain(e.get("url")), e["busy"])].append(e)
@@ -142,6 +145,14 @@ def analyze(entries: list[dict]) -> dict:
         suggestions.append(
             f"Page never went quiet after {len(acts)} actions on {name}: {what} (avg "
             f"{round(sum(a.get('ms') or 0 for a in acts) / len(acts))} ms).{tip} Note it in parsers_user/NOTES.md."
+        )
+    for (cmd, name), times in sorted(missed.items(), key=lambda kv: -sum(kv[1])):
+        what = "`wait`" if cmd == "wait" else f"--wait-text/--wait-for of `{cmd}`"
+        count = f"{len(times)}x" if len(times) > 1 else "once"
+        suggestions.append(
+            f"{what} timed out {count}{_on(name)} (up to {max(times)} ms): the marker never came, and each miss "
+            "costs the whole timeout. Read the page right after (`eval`/`text`) to see why, pick a marker that "
+            "this state shows, and note it in parsers_user/NOTES.md."
         )
     for (cmd, name), times in sorted(slow.items(), key=lambda kv: -max(kv[1]))[:5]:
         count = f"{len(times)}x, up to " if len(times) > 1 else ""
