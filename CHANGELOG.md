@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Locked dependencies updated: websockets 17.4 (limits empty message fragments, which could exhaust the memory of the local server), plus pytest 9.2.0, ruff 0.17.3 and `@types/chrome` 0.3.7 for development.
+
 ## [0.1.11] - 2026-11-06
 
 ### Fixed
