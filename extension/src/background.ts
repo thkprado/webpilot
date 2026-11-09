@@ -706,6 +706,20 @@ async function navigate(tabId: number, action: () => Promise<unknown>) {
   return { ...(await tabInfo(tabId)), loaded: ok, ...(captcha ? { captcha } : {}) };
 }
 
+/**
+ * Moves one entry back (-1) or forward (1) in the tab's history. chrome.tabs.goBack skips the entries of
+ * pages that never had a user gesture (Chromium's history intervention against back-button hijacking),
+ * which is every page an agent only opened or clicked without --trusted, and then fails with "Cannot find
+ * a next page in history". DevTools goes to the adjacent entry, like history.back() from the page.
+ */
+async function historyStep(tabId: number, step: -1 | 1) {
+  const h = await cdp(tabId, "Page.getNavigationHistory");
+  const entry = h.entries[h.currentIndex + step];
+  if (!entry) throw new Error(`no ${step < 0 ? "previous" : "next"} page in this tab's history`);
+  checkBlocked(entry.url);
+  return navigate(tabId, () => cdp(tabId, "Page.navigateToHistoryEntry", { entryId: entry.id }));
+}
+
 const commands: Record<string, (a: Args) => Promise<any>> = {
   ping: async () => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -758,11 +772,11 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
   },
   back: async (a) => {
     const tab = await resolveTab(a);
-    return navigate(tab.id!, () => chrome.tabs.goBack(tab.id!));
+    return historyStep(tab.id!, -1);
   },
   forward: async (a) => {
     const tab = await resolveTab(a);
-    return navigate(tab.id!, () => chrome.tabs.goForward(tab.id!));
+    return historyStep(tab.id!, 1);
   },
   reload: async (a) => {
     const tab = await resolveTab(a);

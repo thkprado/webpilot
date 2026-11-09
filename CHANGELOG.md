@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `back` and `forward` failed with "Cannot find a next page in history" when the pages involved never had a user gesture, which is the case for pages an agent opened with `goto` or clicked into without `--trusted`: Chromium's history intervention skips such entries. They now step to the adjacent history entry, like `history.back()` from the page, and say so clearly when there is none. Reload the extension after updating.
+
 ## [0.1.12] - 2026-11-06
 
 ### Changed
