@@ -44,6 +44,23 @@ function frameToken(f: HTMLIFrameElement): string {
   return t;
 }
 
+/** Elements matching the selector in the document and in the open shadow roots inside it (snapshots walk them too). */
+function deepAll(selector: string, root: Document | ShadowRoot = document): Element[] {
+  const out = Array.from(root.querySelectorAll(selector));
+  for (const el of Array.from(root.querySelectorAll("*"))) {
+    if (el.shadowRoot) out.push(...deepAll(selector, el.shadowRoot));
+  }
+  return out;
+}
+
+/** The first match in the document, else in an open shadow root. */
+function deepFirst(selector: string): Element | null {
+  return document.querySelector(selector) || deepAll(selector)[0] || null;
+}
+
+/** The document or shadow root an element lives in, for lookups by id that must stay inside it. */
+const rootOf = (el: Element) => el.getRootNode() as Document | ShadowRoot;
+
 const clean = (s: string | null | undefined, max = 80) => {
   const t = (s || "").replace(/\s+/g, " ").trim();
   return t.length > max ? t.slice(0, max - 3) + "..." : t;
@@ -77,11 +94,11 @@ function accessibleName(el: Element): string {
   let n = el.getAttribute("aria-label") || "";
   if (!n) {
     const ids = el.getAttribute("aria-labelledby");
-    if (ids) n = ids.split(/\s+/).map((id) => document.getElementById(id)?.textContent || "").join(" ");
+    if (ids) n = ids.split(/\s+/).map((id) => rootOf(el).getElementById(id)?.textContent || "").join(" ");
   }
   const isField = tag === "input" || tag === "textarea" || tag === "select";
   if (!n && isField) {
-    if (el.id) n = document.querySelector(`label[for="${CSS.escape(el.id)}"]`)?.textContent || "";
+    if (el.id) n = rootOf(el).querySelector(`label[for="${CSS.escape(el.id)}"]`)?.textContent || "";
     if (!n) n = el.closest("label")?.textContent || "";
     if (!n) n = (el as HTMLInputElement).placeholder || "";
   }
@@ -96,7 +113,7 @@ function accessibleName(el: Element): string {
 
 /** Refs left in the page by an earlier injection (before the extension was reloaded) are never handed out again. */
 function syncRefCount() {
-  for (const el of Array.from(document.querySelectorAll("[data-wp-ref]"))) {
+  for (const el of deepAll("[data-wp-ref]")) {
     w.__wpRefCount = Math.max(w.__wpRefCount, Number(el.getAttribute("data-wp-ref")!.slice(1)) || 0);
   }
 }
@@ -265,7 +282,7 @@ function snapshot(selector: string | null, maxChars: number, interactiveOnly: bo
 function refind(ref: string): Element | Err {
   const info = w.__wpRefInfo[ref];
   if (!info) return { error: `ref ${ref} not found (refs are reset on navigation; take a new snapshot)`, fatal: true };
-  const matches = Array.from(document.querySelectorAll("*")).filter(
+  const matches = deepAll("*").filter(
     (c) => isInteractive(c) && kindOf(c) === info.kind && accessibleName(c) === info.name && isVisible(c),
   );
   const el = matches.length === 1 ? matches[0] : info.nth >= 0 ? matches[info.nth] : undefined;
@@ -300,14 +317,14 @@ function find(target: string): Element | Err {
   let el: Element | null = null;
   reresolved = false;
   if (/^e\d+$/.test(target)) {
-    return document.querySelector(`[data-wp-ref="${target}"]`) || refind(target);
+    return deepFirst(`[data-wp-ref="${target}"]`) || refind(target);
   }
   if (target.startsWith("text=")) {
     // "text=Next|Próximo|›": alternatives tried in order; an exact label beats the shortest containing one.
     const wants = target.slice(5).split("|").map((s) => s.trim().toLowerCase()).filter(Boolean);
-    const cands = Array.from(document.querySelectorAll(
+    const cands = deepAll(
       "a,button,input[type=submit],input[type=button],[role=button],[role=link],[role=tab],[role=menuitem],[role=option],[role=checkbox],label,summary,[onclick]",
-    )).filter(isVisible);
+    ).filter(isVisible);
     // Visible text and aria-label both count ("1" in a pager may be labelled "Go to page 1").
     const labels = (c: Element) => [(c as HTMLElement).innerText || (c as HTMLInputElement).value || "", c.getAttribute("aria-label") || ""];
     for (const want of wants) {
@@ -316,7 +333,7 @@ function find(target: string): Element | Err {
     }
   } else {
     try {
-      el = document.querySelector(target);
+      el = deepFirst(target);
     } catch {
       return { error: `invalid selector: ${target}`, fatal: true };
     }
@@ -705,7 +722,7 @@ function scroll(to: string, amount: number | null) {
 
 function check(selector: string | null, text: string | null): boolean {
   if (selector) {
-    const el = document.querySelector(selector);
+    const el = deepFirst(selector);
     if (!el || !isVisible(el)) return false;
   }
   if (text && !(document.body?.innerText || "").includes(text)) return false;
