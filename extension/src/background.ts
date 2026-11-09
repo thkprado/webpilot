@@ -923,6 +923,11 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
       });
     }
     if (r.exceptionDetails) throw new Error(evalError(source, r.exceptionDetails, Array.isArray(a.args)));
+    if (!Array.isArray(a.args) && r.result?.type === "function") {
+      // A bare function would come back as {}: say so instead of returning a value that looks like data.
+      throw new Error("the expression is a function, which eval returns without calling it: call it, "
+        + "(() => ...)(), or pass its arguments (--arg, or args=[...] in Python; args=[] for none)");
+    }
     return r.result?.value ?? null;
   },
   fetch: async (a) => {

@@ -30,6 +30,12 @@ def test_eval_with_args(b, site):
     assert b.eval("async (ms) => { await new Promise((r) => setTimeout(r, ms)); return ms; }", args=[50]) == 50
     with pytest.raises(WebPilotError, match="with arguments, the expression must be a function"):
         b.eval("document.title", args=[1])
+    # A function without args would come back as {}: it is an error that says how to call it.
+    for fn in ("() => document.title", "async () => 1", "(function () { return 1; })"):
+        with pytest.raises(WebPilotError, match=r"is a function, which eval returns without calling it"):
+            b.eval(fn)
+    assert b.eval("() => document.title", args=[]) == "Basic"
+    assert b.eval("(() => document.title)()") == "Basic"
 
 
 def test_eval_errors(b, site):

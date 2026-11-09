@@ -29,9 +29,11 @@ this `docs/` folder).
   timeout: check `found`.
 - `eval(expression, timeout=60, args=None)` awaits promises for up to `timeout` seconds. Pass data as `args` (a list
   of JSON values), never pasted into the code: `expression` must then be a function and is called with them, and
-  only their number and size go to the session log.
+  only their number and size go to the session log. Without `args`, `expression` is an expression, not a function
+  (`args=[]` calls a function with none).
 
   ```python
+  count = b.eval("document.querySelectorAll('.item').length")          # an expression, no args
   names = b.eval("(sel) => [...document.querySelectorAll(sel)].map(e => e.textContent)", args=[".item .name"])
   ```
 - `fetch(url, method="GET", headers=None, data=None, json=None, timeout=120, allow_write=False, raw=False)` returns
