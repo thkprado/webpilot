@@ -29,10 +29,10 @@ def test_a_ref_that_is_gone_fails_with_a_clear_error(b, site):
     b.goto(site.url("dynamic.html"))
     target = ref(b.snapshot()["text"], "button", "Target")
     b.click("#remove")
-    with pytest.raises(WebPilotError, match=rf'ref {target} \(button "Target"\) is gone; take a new snapshot'):
+    with pytest.raises(WebPilotError, match=rf'ref {target} \(button "Target"\) is gone: the page changed; run snapshot -i again'):
         b.click(target, timeout=1)
     start = time.monotonic()
-    with pytest.raises(WebPilotError, match="ref e9999 not found .*take a new snapshot"):
+    with pytest.raises(WebPilotError, match="ref e9999 not found: refs are reset when the page navigates; run snapshot -i again"):
         b.click("e9999", timeout=30)  # never handed out: fails at once instead of waiting
     assert time.monotonic() - start < 5
     with pytest.raises(WebPilotError, match="invalid selector"):
@@ -194,6 +194,44 @@ def test_submit_with_no_form_on_the_page_is_an_error(b, site):
     b.goto(site.url("basic.html"))
     with pytest.raises(WebPilotError, match="no form on the page"):
         b.submit()
+
+
+# ------------------------------------------------------------------ what to do next
+
+
+def test_an_action_the_page_ignores_gets_a_hint(b, site):
+    b.goto(site.url("basic.html"))
+    res = b.click("#go")  # only logs to a variable: nothing on the page changes
+    assert res["changed"] is False and "try click --trusted, submit" in res["hint"]
+    res = b.click("#go", trusted=True)
+    assert res["changed"] is False and "--trusted" not in res["hint"]
+    assert "hint" not in b.click("#go", wait_selector="#go")  # the awaited marker showed: no hint
+    res = b.click("text=To page A")
+    assert res["changed"] is True and "hint" not in res
+    b.goto(site.url("input.html"))
+    res = b.submit("#q1")  # the page's handler only logs
+    assert res["changed"] is False and "click on the form's submit button" in res["hint"]
+
+
+def test_select_errors_say_what_to_do(b, site):
+    b.goto(site.url("basic.html"))
+    b.eval("document.body.insertAdjacentHTML('beforeend', '<input id=\"lonely\" role=\"combobox\" aria-label=\"Lonely\">')")
+    with pytest.raises(WebPilotError, match="no list of options opened for .*: not a listbox-style dropdown; click it"):
+        b.select("#lonely", "x")
+    with pytest.raises(WebPilotError, match=r"not a combobox: .*; target the dropdown's input \(role=combobox"):
+        b.select("#list", "x")
+    # An option ref from a menu that closed before the click (it closes when the window loses focus).
+    b.eval("document.body.insertAdjacentHTML('beforeend', '<ul id=\"menu\" role=\"listbox\"><li role=\"option\">Teams</li></ul>')")
+    option = ref(b.snapshot(interactive=True)["text"], "option", "Teams")
+    b.eval("document.getElementById('menu').remove()")
+    with pytest.raises(WebPilotError, match=rf'ref {option} \(option "Teams"\) is gone: its menu closed; .* select'):
+        b.click(option, timeout=1)
+
+
+def test_a_page_no_extension_may_script_says_to_go_elsewhere(b):
+    b.goto("chrome://version")
+    with pytest.raises(WebPilotError, match="no extension may script .*goto a normal web page first"):
+        b.snapshot()
 
 
 # ------------------------------------------------------------------ scroll

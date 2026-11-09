@@ -219,6 +219,11 @@ def test_missing_extension_errors(daemon, monkeypatch):
     with pytest.raises(WebPilotError, match="Temporary browser is not connected"):
         b.call("ping")
     b.close()
+    monkeypatch.setitem(__import__("webpilot.client").client.EXTENSION_WAIT, "real", 0.2)
+    b = Browser("real", autostart=False)
+    with pytest.raises(WebPilotError, match=r"extension \(real browser\) is not connected.*badge shows ON.*ask the user"):
+        b.call("ping")
+    b.close()
 
 
 def test_bad_token_rejected(daemon):
@@ -358,12 +363,13 @@ def test_profiles_are_routed_by_name(daemon, monkeypatch):
     b = Browser("real", autostart=False)
     wait_profiles(b, 2)
     assert sorted(b.status()["extensions"]["real"]) == ["home", "work"]
-    with pytest.raises(WebPilotError, match=r"several browser profiles are connected \(home, work\)"):
+    with pytest.raises(WebPilotError, match=r"several browser profiles are connected \(home, work\)") as err:
         b.call("ping")
+    assert "ask the user which one" in str(err.value) and "-p NAME" in str(err.value)  # what to do next
     assert Browser("real", profile="home", autostart=False).call("ping")["profile"] == "home"
     monkeypatch.setenv("WEBPILOT_PROFILE", "work")
     assert Browser("real", autostart=False).call("ping")["profile"] == "work"
-    with pytest.raises(WebPilotError, match=r"'other' is not connected \(connected: home, work\)"):
+    with pytest.raises(WebPilotError, match=r"'other' is not connected \(connected: home, work\): its browser window"):
         Browser("real", profile="other", autostart=False).call("ping")
     work.close()
     wait_profiles(b, 1)

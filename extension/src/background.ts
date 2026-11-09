@@ -376,6 +376,12 @@ async function act(
   }
 }
 
+/** Adds a `hint` to an action's result when the page showed no change (and no awaited marker appeared). */
+function unchangedHint(out: any, alternatives: string) {
+  if (out.changed || out.hint || out.waited?.found) return out;
+  return { ...out, hint: `the page showed no change; if it should have reacted, try ${alternatives}` };
+}
+
 /** DOM mutation count before an action that does not go through a page function. */
 async function armCount(tabId: number, frameId = 0): Promise<number> {
   try { return (await frameCall(tabId, frameId, "arm")).count; } catch { return 0; }
@@ -431,19 +437,34 @@ const pageFetch = async (url: string, method: string, headers: Record<string, st
   }
 };
 
+const RESTRICTED = "could not run script in this tab: it shows a page no extension may script (chrome:// or edge:// " +
+  "pages, the extension store, a PDF); goto a normal web page first";
+
+/** Chrome's errors for pages an extension cannot script, with what to do instead. */
+function explain(e: any): Error {
+  const m = String(e?.message ?? e);
+  if (/cannot access|cannot be scripted/i.test(m)) return new Error(`${RESTRICTED} (${m})`);
+  if (/showing error page/i.test(m)) {
+    return new Error(`the tab shows the browser's error page (site unreachable?); goto the URL again or another page (${m})`);
+  }
+  return e instanceof Error ? e : new Error(m);
+}
+
 /** Calls globalThis.__wp[name](...args) in one frame of the tab, injecting page.js first if needed. */
 async function frameCall<T = any>(tabId: number, frameId: number, name: string, ...args: any[]): Promise<T> {
   const target = { tabId, frameIds: [frameId] };
   const run = async () => {
-    const [res] = await chrome.scripting.executeScript({ target, func: callWp, args: [name, args] });
+    const [res] = await chrome.scripting.executeScript({ target, func: callWp, args: [name, args] }).catch((e) => {
+      throw explain(e);
+    });
     return res?.result as any;
   };
   let r = await run();
   if (r?.missing) {
-    await chrome.scripting.executeScript({ target, files: ["page.js"] });
+    await chrome.scripting.executeScript({ target, files: ["page.js"] }).catch((e) => { throw explain(e); });
     r = await run();
   }
-  if (!r) throw new Error("could not run script in this tab (restricted page?)");
+  if (!r) throw new Error(RESTRICTED);
   if (r.error) throw new Error(r.error);
   if (r.value && typeof r.value === "object" && r.value.error) throw new Error(r.value.error);
   return r.value;
@@ -618,8 +639,8 @@ async function assertVisible(tabId: number, frameId = 0) {
     try { hidden = (await frameCall(tabId, frameId, "visibility")) === "hidden"; } catch { /* restricted page */ }
   }
   if (hidden) {
-    throw new Error("the browser window is minimized or covered, so real input would be lost; bring it to the front, " +
-      "or use click/type without --trusted, or select");
+    throw new Error("the browser window is minimized or covered, so real input would be lost; ask the user to bring " +
+      "it to the front, or use click/type without --trusted, submit instead of type --submit, or select");
   }
 }
 
@@ -811,7 +832,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const tab = await resolveTab(a);
     // A click on a dropdown option can land and choose nothing (the menu closed first): say whether it chose.
     let option: Loc | null = null;
-    return act(tab.id!, a, a.target, "clicked", async (loc) => {
+    const out = await act(tab.id!, a, a.target, "clicked", async (loc) => {
       if (a.trusted) await assertVisible(tab.id!, loc.frameId);
       if (await frameCall(tab.id!, loc.frameId, "watchOption", loc.target)) option = loc;
       if (!a.trusted) return frameCall(tab.id!, loc.frameId, "click", loc.target);
@@ -827,6 +848,8 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
       const ref = (loc!.frameId ? `f${loc!.frameId}` : "") + r.ref;
       return { selected: false, value: r.value, hint: `use select ${ref} ${JSON.stringify(r.option)}` };
     });
+    return unchangedHint(out, a.trusted ? "submit (for a form) or another element"
+      : "click --trusted, submit (for a form) or another element");
   },
   type: async (a) => {
     const tab = await resolveTab(a);
@@ -860,8 +883,9 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
   },
   submit: async (a) => {
     const tab = await resolveTab(a);
-    return act(tab.id!, a, a.target ?? null, "submitted",
+    const out = await act(tab.id!, a, a.target ?? null, "submitted",
       (loc) => frameCall(tab.id!, loc.frameId, "submitForm", a.target ? loc.target : null));
+    return unchangedHint(out, "click on the form's submit button (snapshot -i shows it)");
   },
   scroll: async (a) => {
     const tab = await resolveTab(a);
@@ -916,9 +940,9 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const [res] = await chrome.scripting.executeScript({
       target: { tabId: tab.id! }, func: pageFetch, world: "MAIN", // the isolated world's requests never left the tab
       args: [url, method, a.headers ?? {}, a.body ?? null, a.timeoutMs ?? 120000],
-    });
+    }).catch((e) => { throw explain(e); });
     const r = res?.result as any;
-    if (!r) throw new Error("could not run script in this tab (restricted page?)");
+    if (!r) throw new Error(RESTRICTED);
     if (r.error) throw new Error(r.error);
     checkBlocked(r.url); // after redirects
     return r;

@@ -281,14 +281,21 @@ function snapshot(selector: string | null, maxChars: number, interactiveOnly: bo
 /** A ref whose element was replaced (AJAX re-render): adopt the element with the same kind and name. */
 function refind(ref: string): Element | Err {
   const info = w.__wpRefInfo[ref];
-  if (!info) return { error: `ref ${ref} not found (refs are reset on navigation; take a new snapshot)`, fatal: true };
+  if (!info) {
+    return { error: `ref ${ref} not found: refs are reset when the page navigates; run snapshot -i again and use its refs`, fatal: true };
+  }
   const matches = deepAll("*").filter(
     (c) => isInteractive(c) && kindOf(c) === info.kind && accessibleName(c) === info.name && isVisible(c),
   );
   const el = matches.length === 1 ? matches[0] : info.nth >= 0 ? matches[info.nth] : undefined;
   const other = el?.getAttribute("data-wp-ref");
   if (!el || (other && other !== ref)) {
-    return { error: `ref ${ref} (${info.kind}${info.name ? ` "${info.name}"` : ""}) is gone; take a new snapshot` };
+    const what = `ref ${ref} (${info.kind}${info.name ? ` "${info.name}"` : ""}) is gone`;
+    // Options vanish when their menu closes between commands (it closes when the window loses focus).
+    if (info.kind === "option") {
+      return { error: `${what}: its menu closed; choose in one command with select <combobox ref> <option text>` };
+    }
+    return { error: `${what}: the page changed; run snapshot -i again and use its refs` };
   }
   el.setAttribute("data-wp-ref", ref);
   reresolved = true;
@@ -608,7 +615,9 @@ async function choose(target: string, text: string) {
     };
   }
   const box = (el.getAttribute("role") === "combobox" ? el : el.querySelector("[role=combobox]")) as HTMLElement | null;
-  if (!box) return { error: `not a combobox: ${short(el)}` };
+  if (!box) {
+    return { error: `not a combobox: ${short(el)}; target the dropdown's input (role=combobox in snapshot -i) or an element around it` };
+  }
   const field = fieldOf(box);
   const nodes = [field, box];
   const attr = (a: string) => field.getAttribute(a) ?? box.getAttribute(a);
@@ -639,7 +648,9 @@ async function choose(target: string, text: string) {
     return bestMatch(opts, (o) => [o.innerText || "", o.getAttribute("aria-label") || ""], text);
   }, 3000);
   if (!opt) {
-    if (!listboxOf(nodes, before)) return { error: `no list of options opened for ${short(box)}` };
+    if (!listboxOf(nodes, before)) {
+      return { error: `no list of options opened for ${short(box)}: not a listbox-style dropdown; click it, then snapshot -i` };
+    }
     if (editable && !labels.length) {
       // The typed text filtered everything out: clear it to list what there is.
       Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), "value")!.set!.call(field, "");

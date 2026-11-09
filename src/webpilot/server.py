@@ -25,8 +25,9 @@ from websockets.exceptions import ConnectionClosed
 log = logging.getLogger("webpilot.daemon")
 
 NOT_CONNECTED = {
-    "real": "WebPilot extension (real browser) is not connected. Is your browser open with the extension "
-    "loaded? See `webpilot setup` and `webpilot status`.",
+    "real": "WebPilot extension (real browser) is not connected. The browser must be open with the extension on "
+    "(its badge shows ON): ask the user to open it, then check with `webpilot status`; first install: "
+    "`webpilot setup`.",
     "temp": "Temporary browser is not connected. Run `webpilot temp start`.",
 }
 EXTENSION_ORIGINS = ("chrome-extension://", "extension://", "moz-extension://")
@@ -183,11 +184,13 @@ class Daemon:
             return ext
         names = ", ".join(sorted(self.extensions.get(mode, {})))
         if ambiguous():
-            raise RuntimeError(f"several browser profiles are connected ({names}); choose one with --profile NAME "
-                               "or WEBPILOT_PROFILE (see `webpilot profile list`)")
+            raise RuntimeError(f"several browser profiles are connected ({names}): they are separate accounts, so "
+                               "ask the user which one to use (never pick one yourself), then add -p NAME to every "
+                               "command (or set WEBPILOT_PROFILE); the user can set a default with \"profile\" in "
+                               "~/.webpilot/config.json")
         if profile and names:
-            raise RuntimeError(f"browser profile {profile!r} is not connected (connected: {names}); "
-                               "see `webpilot profile list`")
+            raise RuntimeError(f"browser profile {profile!r} is not connected (connected: {names}): its browser "
+                               "window is closed or its extension is off; see `webpilot profile list`")
         raise RuntimeError(NOT_CONNECTED.get(mode, f"no extension for mode {mode!r}"))
 
     async def run(self) -> None:
