@@ -201,4 +201,8 @@ class Daemon:
 
 def main(token: str, port: int) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    asyncio.run(Daemon(token, port).run())
+    try:
+        asyncio.run(Daemon(token, port).run())
+    except OSError as e:  # port taken: most likely a daemon that another command started a moment earlier
+        log.error("%s: is another daemon running? (`webpilot status`)", e.strerror or e)
+        raise SystemExit(1) from None

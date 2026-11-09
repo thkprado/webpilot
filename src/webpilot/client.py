@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -83,6 +84,14 @@ def _out_chars(value: Any) -> int:
     return len(json.dumps(value, ensure_ascii=False, default=str))
 
 
+def _tcp(port: int) -> socket.socket:
+    """A TCP connection to the daemon's port, for websockets' `connect(sock=...)`. The short timeout is how a
+    stopped daemon is noticed: on Windows a refused connection to 127.0.0.1 takes 2 s to fail otherwise."""
+    sock = socket.create_connection(("127.0.0.1", port), timeout=0.2)
+    sock.settimeout(None)
+    return sock
+
+
 class Connection:
     """One WebSocket session with the daemon (started automatically if not running)."""
 
@@ -96,7 +105,8 @@ class Connection:
         deadline = None
         while True:
             try:
-                ws = self._stack.enter_context(connect(uri, max_size=None, open_timeout=3, ping_interval=None))
+                ws = self._stack.enter_context(connect(uri, sock=_tcp(self.cfg["port"]), max_size=None,
+                                                       open_timeout=3, ping_interval=None))
                 break
             except (OSError, InvalidHandshake, TimeoutError) as e:
                 if not autostart:
@@ -106,7 +116,7 @@ class Connection:
                     deadline = time.monotonic() + 15
                 elif time.monotonic() > deadline:
                     raise WebPilotError(f"could not start daemon; see {config.home() / 'daemon.log'}") from e
-                time.sleep(0.3)
+                time.sleep(0.1)
         ws.send(json.dumps({"type": "hello", "role": "client", "token": self.cfg["token"]}))
         try:
             welcome = json.loads(ws.recv(timeout=5))

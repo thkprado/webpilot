@@ -2,6 +2,8 @@
 
 import json
 import threading
+import time
+from contextlib import ExitStack
 
 import pytest
 from helpers import free_port, running_daemon
@@ -224,6 +226,45 @@ def test_missing_extension_errors(daemon, monkeypatch):
     with pytest.raises(WebPilotError, match=r"extension \(real browser\) is not connected.*badge shows ON.*ask the user"):
         b.call("ping")
     b.close()
+
+
+def test_stopped_daemon_is_noticed_quickly():
+    # On Windows a refused connection to 127.0.0.1 takes 2 s to fail unless the connect has a short timeout.
+    start = time.monotonic()
+    with pytest.raises(WebPilotError, match="not running"):
+        Connection({"port": free_port(), "token": "t"}, autostart=False)
+    assert time.monotonic() - start < 1
+
+
+def test_stopped_daemon_is_started_once(tmp_path, monkeypatch):
+    port = free_port()
+    monkeypatch.setenv("WEBPILOT_DIR", str(tmp_path))
+    monkeypatch.setenv("WEBPILOT_PORT", str(port))
+    from webpilot import client, config
+
+    cfg = config.load()
+    with ExitStack() as stack:
+        starts = []
+
+        def start_daemon():  # like the real one: the daemon listens a moment later
+            starts.append(1)
+            threading.Timer(0.5, lambda: stack.enter_context(running_daemon(cfg["token"], port))).start()
+
+        monkeypatch.setattr(client, "start_daemon", start_daemon)
+        conn = Connection(cfg)
+        assert conn.request("daemon.status")["port"] == port
+        conn.close()
+        assert starts == [1]
+
+
+def test_second_daemon_on_a_taken_port_exits_with_one_line(daemon, caplog):
+    from webpilot.server import main
+
+    with pytest.raises(SystemExit) as exc:  # SystemExit, not the OSError: no traceback in daemon.log
+        main(daemon["token"], daemon["port"])
+    assert exc.value.code == 1
+    assert [r.levelname for r in caplog.records] == ["ERROR"]
+    assert "is another daemon running?" in caplog.text
 
 
 def test_bad_token_rejected(daemon):
