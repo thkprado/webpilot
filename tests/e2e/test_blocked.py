@@ -11,7 +11,7 @@ from helpers import free_port, running_daemon
 from webpilot import config, temp_browser
 from webpilot.client import Browser, WebPilotError
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.e2e, pytest.mark.xdist_group("blocked")]  # its browser starts once, on one worker
 
 BLOCKED = "domain blocked by WebPilot config: localhost"
 

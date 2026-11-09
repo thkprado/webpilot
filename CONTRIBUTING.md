@@ -34,7 +34,17 @@ uv run pytest -m e2e                     # WEBPILOT_E2E_HEADED=1 shows the brows
 
 They use a throwaway config and their own daemon on a free port, so your browser and its extension are never
 touched. On a failure, the test's report lists a screenshot and copies of the daemon and session logs. Pages
-live in `tests/e2e/pages/` (see its README); run these tests after any change to `extension/src`.
+live in `tests/e2e/pages/` (see its README); run these tests after any change to `extension/src`. CI runs them
+too (job `e2e`, with the failure screenshots and logs as an artifact).
+
+`-m e2e` runs on 3 pytest-xdist workers, each with its own daemon and headless browser: ~50 s on a
+16-thread Windows machine (~130 s on one worker: `-n 0`). The slowest tests wait on the extension's own caps
+(a page that never goes quiet takes 10 s), not on sleeps. Use `-n 0` with `--pdb` or `-s`.
+
+A watchdog (`tests/e2e_watchdog.py`) aborts the run, killing its browsers and workers (exit code 3, reason in
+`<basetemp>/watchdog.txt`), when a test runs over 90 s, the run over 300 s, free memory falls under 15%, or
+more python processes descend from the run than its workers need. Override the limits with
+`WEBPILOT_E2E_TEST_LIMIT`, `WEBPILOT_E2E_RUN_LIMIT` (seconds) and `WEBPILOT_E2E_MIN_FREE` (fraction).
 
 ## Guidelines
 
