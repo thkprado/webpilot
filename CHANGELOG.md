@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-11-08
+
 ### Fixed
 - `back` and `forward` failed with "Cannot find a next page in history" when the pages involved never had a user gesture, which is the case for pages an agent opened with `goto` or clicked into without `--trusted`: Chromium's history intervention skips such entries. They now step to the adjacent history entry, like `history.back()` from the page, and say so clearly when there is none. Reload the extension after updating.
 - Elements inside open shadow roots (web components) showed up in the snapshot with a ref, but `click`, `type`, `select` and `scroll` on that ref failed with "is gone; take a new snapshot". Refs, `text=` targets and CSS selectors now reach into open shadow roots (a selector is tried on the page first), and so does `wait --selector`; fields inside a shadow root get their name from a `<label for>` in that same root. Reload the extension after updating.
