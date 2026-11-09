@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Child</title>
+</head>
+<body>
+<button id="child-btn">Child button</button>
+<input id="child-input" aria-label="Child input">
+<p id="child-text">Child text</p>
+<script>
+  // ?name=same|cross labels everything, so the parent's snapshot tells the two frames apart.
+  const name = new URLSearchParams(location.search).get("name") || "child";
+  const label = name[0].toUpperCase() + name.slice(1);
+  const btn = document.getElementById("child-btn");
+  const input = document.getElementById("child-input");
+  const text = document.getElementById("child-text");
+  document.title = `${label} child`;
+  btn.textContent = `${label} button`;
+  btn.classList.add(`${name}-btn`);
+  input.setAttribute("aria-label", `${label} input`);
+  text.textContent = `Only in the ${name} frame`;
+  text.classList.add(`${name}-text`);
+  const log = (x) => parent.postMessage({ log: `${name}:${x}` }, "*");
+  btn.addEventListener("click", (e) => log(e.isTrusted ? "click:trusted" : "click"));
+  input.addEventListener("input", () => log(`value=${input.value}`));
+</script>
+</body>
+</html>

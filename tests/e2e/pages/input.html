@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Input</title>
+<script>window.__log = [];</script>
+</head>
+<body>
+<h1>Input page</h1>
+<input id="a" aria-label="First" value="first value">
+<input id="b" aria-label="Second">
+<textarea id="notes" aria-label="Notes">old notes</textarea>
+<div id="editor" contenteditable="true" aria-label="Editor">old text</div>
+<form id="f1"><input name="q" id="q1" aria-label="Query one"><button id="s1">Send one</button></form>
+<form id="f2"><input name="q" id="q2" aria-label="Query two"><button id="s2">Send two</button></form>
+<script>
+  const target = (e) => e.target.id || e.target.localName;
+  document.addEventListener("keydown", (e) => __log.push({ key: e.key, ctrl: e.ctrlKey, trusted: e.isTrusted, target: target(e) }));
+  document.addEventListener("input", (e) => __log.push({ input: target(e), trusted: e.isTrusted }));
+  for (const f of document.forms) {
+    f.addEventListener("submit", (e) => {
+      e.preventDefault();
+      __log.push({ submitted: f.id, submitter: e.submitter ? e.submitter.id : null, q: f.q.value });
+    });
+  }
+</script>
+</body>
+</html>

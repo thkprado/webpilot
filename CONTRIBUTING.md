@@ -28,6 +28,7 @@ first use) against local pages on `127.0.0.1`. They are left out of `uv run pyte
 
 ```bash
 cd extension && npm run build && cd ..   # the tests load extension/dist (skipped when it is missing)
+cd tests/pages/combobox && npm ci && npm run build && cd ../../..  # react-select page (test_combobox.py skips without it)
 uv run pytest -m e2e                     # WEBPILOT_E2E_HEADED=1 shows the browser, for debugging
 ```
 

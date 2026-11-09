@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shadow</title>
+<script>window.__log = [];</script>
+</head>
+<body>
+<h1>Shadow page</h1>
+<x-card><button onclick="__log.push('slotted')">Slotted button</button></x-card>
+<script>
+  // An open shadow root with its own controls, one nested shadow root inside it, and a slot for light DOM.
+  customElements.define("x-inner", class extends HTMLElement {
+    connectedCallback() {
+      const root = this.attachShadow({ mode: "open" });
+      root.innerHTML = `<button id="deep-btn">Deep button</button>`;
+      root.getElementById("deep-btn").addEventListener("click", () => __log.push("deep"));
+    }
+  });
+  customElements.define("x-card", class extends HTMLElement {
+    connectedCallback() {
+      const root = this.attachShadow({ mode: "open" });
+      root.innerHTML = `<p>Inside the shadow root</p>
+        <button id="shadow-btn">Shadow button</button>
+        <label for="shadow-input">Shadow input</label> <input id="shadow-input">
+        <x-inner></x-inner>
+        <slot></slot>`;
+      root.getElementById("shadow-btn").addEventListener("click", (e) => __log.push(e.isTrusted ? "shadow:trusted" : "shadow"));
+      const input = root.getElementById("shadow-input");
+      input.addEventListener("input", () => __log.push(`value=${input.value}`));
+    }
+  });
+</script>
+</body>
+</html>

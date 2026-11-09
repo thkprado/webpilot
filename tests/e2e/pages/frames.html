@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Frames</title>
+<script>
+  // Children report what happened by postMessage, so cross-origin frames can be checked from here.
+  window.__log = [];
+  addEventListener("message", (e) => { if (e.data && e.data.log !== undefined) window.__log.push(e.data.log); });
+</script>
+</head>
+<body>
+<h1>Frames page</h1>
+<button onclick="__log.push('top')">Top button</button>
+<iframe id="same" title="Same frame" src="frame-child.html?name=same" width="420" height="220"></iframe>
+<iframe id="cross" title="Cross frame" width="420" height="220"></iframe>
+<script>
+  // ?other=http://127.0.0.1:PORT: the same child page from another origin.
+  const other = new URLSearchParams(location.search).get("other");
+  if (other) document.getElementById("cross").src = other + "/frame-child.html?name=cross";
+</script>
+</body>
+</html>

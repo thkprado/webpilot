@@ -3,6 +3,7 @@
 import re
 
 import pytest
+from helpers import ref
 
 from webpilot.client import WebPilotError
 
@@ -11,12 +12,6 @@ pytestmark = pytest.mark.e2e
 
 def log(b) -> list:
     return b.eval("window.__log")
-
-
-def ref(snapshot_text: str, kind: str, name: str) -> str:
-    m = re.search(rf"\[(e\d+) {re.escape(kind)} \"{re.escape(name)}\"", snapshot_text)
-    assert m, f"no {kind} {name!r} in snapshot:\n{snapshot_text}"
-    return m.group(1)
 
 
 # ------------------------------------------------------------------ connection, tabs, navigation

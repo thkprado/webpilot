@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from webpilot import config, temp_browser
 from webpilot.client import Browser, WebPilotError
 
 PAGES = Path(__file__).parent / "pages"
+COMBOBOX = Path(__file__).parents[1] / "pages" / "combobox"  # served under /combobox/ (needs its npm build)
 CONNECT_TIMEOUT = 60  # first run may install Playwright's Chromium
 
 
@@ -54,7 +56,8 @@ class Temp:
 
 
 class Handler(SimpleHTTPRequestHandler):
-    """Static files from tests/e2e/pages plus a few endpoints for fetch, cookies and redirects."""
+    """Static files from tests/e2e/pages (and tests/pages/combobox under /combobox/) plus a few endpoints
+    for fetch, cookies and redirects."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PAGES), **kwargs)
@@ -62,11 +65,18 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *args) -> None:
         pass
 
+    def translate_path(self, path: str) -> str:
+        if path.startswith("/combobox/"):
+            self.directory = str(COMBOBOX)
+            path = path[len("/combobox"):]
+        return super().translate_path(path)
+
     def _json(self, data, status: int = 200, headers: dict[str, str] | None = None) -> None:
         body = json.dumps(data).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")  # readable from the other origin (redirect tests)
         for k, v in (headers or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -142,9 +152,16 @@ def e2e_env(tmp_path_factory) -> Env:
             handler.close()
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address) -> None:
+        if not isinstance(sys.exc_info()[1], ConnectionError):  # the browser dropped a connection: not news
+            super().handle_error(request, client_address)
+
+
 def _serve() -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
+    server = Server(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 

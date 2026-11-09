@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Elements inside open shadow roots (web components) showed up in the snapshot with a ref, but `click`, `type`, `select` and `scroll` on that ref failed with "is gone; take a new snapshot". Refs, `text=` targets and CSS selectors now reach into open shadow roots (a selector is tried on the page first), and so does `wait --selector`; fields inside a shadow root get their name from a `<label for>` in that same root. Reload the extension after updating.
 
 ### Changed
-- For contributors: end-to-end tests of the extension in `tests/e2e/` (headless temporary browser, local pages), run with `uv run pytest -m e2e`; plain `uv run pytest` leaves them out. See CONTRIBUTING.
+- For contributors: end-to-end tests of the extension in `tests/e2e/` (headless temporary browser, local pages), run with `uv run pytest -m e2e`; plain `uv run pytest` leaves them out. They cover iframes, shadow DOM, waits, keys, forms, the react-select page of `tests/pages/combobox`, `eval`, `fetch`, screenshots, `blocked_domains` and the CLI's exit codes. See CONTRIBUTING.
 
 ## [0.1.12] - 2026-11-06
 

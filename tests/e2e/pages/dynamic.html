@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dynamic</title>
+<script>window.__log = []; const log = (x) => window.__log.push(x);</script>
+</head>
+<body>
+<h1>Dynamic page</h1>
+<div id="target-wrap"><button onclick="log('target')">Target</button></div>
+<button id="rerender">Re-render</button>
+<button id="remove">Remove target</button>
+<button id="show-later">Show later</button>
+<button id="hide-later">Hide later</button>
+<p id="spinner">Loading...</p>
+<div id="late-zone"></div>
+<script>
+  const wrap = document.getElementById("target-wrap");
+  // A framework re-render: a new element with the same role and name.
+  document.getElementById("rerender").onclick = () => {
+    wrap.innerHTML = `<button onclick="log('target')">Target</button>`;
+  };
+  document.getElementById("remove").onclick = () => { wrap.innerHTML = ""; };
+  document.getElementById("show-later").onclick = () => setTimeout(() => {
+    document.getElementById("late-zone").innerHTML = `<p id="late">Arrived late</p>`;
+  }, 800);
+  document.getElementById("hide-later").onclick = () => setTimeout(() => {
+    document.getElementById("spinner").remove();
+  }, 800);
+</script>
+</body>
+</html>

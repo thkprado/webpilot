@@ -1,7 +1,8 @@
 # Combobox test page
 
 A local page with [react-select](https://react-select.com) comboboxes, for checking by hand how
-`click`, `type`, `press` and `select` behave on custom dropdowns. Not run by `pytest`.
+`click`, `type`, `press` and `select` behave on custom dropdowns. The `select` scenarios also run as
+assertions in `tests/e2e/test_combobox.py` (`uv run pytest -m e2e`, once this page is built; skipped before).
 
 | Field | What it covers |
 |---|---|

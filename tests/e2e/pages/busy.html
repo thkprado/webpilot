@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Busy</title>
+<script>window.__log = [];</script>
+</head>
+<body>
+<h1>Busy page</h1>
+<p>Time: <span id="clock">0</span></p>
+<button onclick="__log.push('tick')">Tick button</button>
+<script>
+  // A running clock: the DOM never goes quiet, so actions settle on their cap instead.
+  let n = 0;
+  setInterval(() => { document.getElementById("clock").textContent = String(++n); }, 100);
+</script>
+</body>
+</html>
