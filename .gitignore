@@ -13,3 +13,4 @@ extension/dist/
 .env.*
 *.har
 config.json
+.vscode/settings.json
