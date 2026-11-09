@@ -544,19 +544,40 @@ async function selectorCall(tabId: number, selector: string | null, name: string
   }
 }
 
-/** Viewport coordinates of a target for trusted input, adding the offsets of the iframes it is in. */
+/**
+ * Viewport coordinates of a target for trusted input, adding the offsets of the iframes it is in, and what
+ * covers it there (in its own frame, or over one of those iframes in a frame around it), if anything.
+ */
 async function locateAbs(tabId: number, loc: Loc) {
   const p = await frameCall(tabId, loc.frameId, "locate", loc.target);
   let frameId = loc.frameId;
   for (let depth = 0; frameId !== 0; depth++) {
     const { token } = await frameCall(tabId, frameId, "frameInfo");
-    const hit = token && depth < 5 ? (await allFramesCall(tabId, "frameOffset", token)).find((f) => f.value) : undefined;
+    const hit = token && depth < 5 ? (await allFramesCall(tabId, "frameOffset", token, p.x, p.y)).find((f) => f.value) : undefined;
     if (!hit) throw new Error("could not locate the iframe on the page; take a new snapshot");
     p.x += hit.value.x;
     p.y += hit.value.y;
+    p.covered ||= hit.value.covered;
     frameId = hit.frameId;
   }
   return p;
+}
+
+/**
+ * locateAbs, polled while another element covers the target, so overlays that go away (spinners, toasts) are
+ * waited for. A real click there would land on the overlay, so one that stays is an error.
+ */
+async function locateUncovered(tabId: number, loc: Loc, target: string, timeoutMs: number) {
+  const end = Date.now() + timeoutMs;
+  for (;;) {
+    const p = await locateAbs(tabId, loc);
+    if (!p.covered) return p;
+    if (Date.now() >= end) {
+      throw new Error(`${target} (${p.desc}) is covered by ${p.covered}: close that first (click its button), ` +
+        "or click without --trusted");
+    }
+    await sleep(150);
+  }
 }
 
 // ---------------------------------------------------------------- debugger (trusted input)
@@ -836,8 +857,9 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
       if (a.trusted) await assertVisible(tab.id!, loc.frameId);
       if (await frameCall(tab.id!, loc.frameId, "watchOption", loc.target)) option = loc;
       if (!a.trusted) return frameCall(tab.id!, loc.frameId, "click", loc.target);
+      // Counted after the wait, so an overlay going away does not read as the click changing the page.
+      const p = await locateUncovered(tab.id!, loc, String(a.target), (a.timeout ?? 5) * 1000);
       const count = await armCount(tab.id!, loc.frameId);
-      const p = await locateAbs(tab.id!, loc);
       await mouseClick(tab.id!, p.x, p.y);
       return { desc: p.desc, count };
     }, async () => {

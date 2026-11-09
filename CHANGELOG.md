@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- `click --trusted` no longer clicks whatever covers the target. A real click lands on the topmost element at the target's center, so a cookie banner or a modal on top got the click and the result read as a normal click. Now an overlay that goes away within `--timeout` (a spinner, a toast) is waited for, and one that stays is an error naming it, e.g. `e12 (button "Buy") is covered by div.cookie-banner "We use cookies. Accept": close that first (click its button), or click without --trusted`. This includes an overlay in the parent page over an iframe the target is in. Clicks without `--trusted` are unchanged. Reload the extension after updating.
+
 ### Fixed
 - On Windows, a command no longer waits 2 s or more when the daemon is not running yet: `webpilot status` with the daemon stopped answered in about 2.3 s, the first command after a restart (or after `webpilot stop`) took about 3 s to start the daemon and connect; now about 0.3 s and 1 s. A second daemon started while one already listens (two commands at once) exits with one line in `daemon.log` instead of a traceback.
 

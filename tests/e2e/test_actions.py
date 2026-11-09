@@ -162,6 +162,46 @@ def test_type_into_something_not_editable_is_an_error(b, site):
         b.type("h1", "x", trusted=True)
 
 
+# ------------------------------------------------------------------ trusted clicks on covered targets
+
+
+def test_trusted_click_refuses_a_target_under_a_banner(b, site):
+    b.goto(site.url("covered.html"))
+    t0 = time.monotonic()
+    with pytest.raises(WebPilotError, match=r'#buy \(button#buy "Buy"\) is covered by div\.cookie-banner '
+                                            r'"We use cookies\. Accept": close that first .*without --trusted'):
+        b.click("#buy", trusted=True, timeout=1)
+    assert time.monotonic() - t0 < 4  # gave up after its timeout
+    assert b.eval("window.__log") == []  # the banner got no click either
+    b.click("#buy")  # a synthetic click reaches the element through the banner, as before
+    b.click("#accept", trusted=True)  # the banner's own button is on top
+    assert b.click("#buy", trusted=True)["clicked"] == 'button#buy "Buy"'
+    assert page_log(b, 3) == ["buy", "accept:trusted", "buy:trusted"]
+
+
+def test_trusted_click_waits_for_an_overlay_that_goes_away(b, site):
+    b.goto(site.url("covered.html"))
+    b.click("#accept")
+    b.eval("spin(700)")
+    t0 = time.monotonic()
+    b.click("#buy", trusted=True)
+    assert time.monotonic() - t0 > 0.5
+    assert page_log(b, 2) == ["accept", "buy:trusted"]
+
+
+def test_trusted_click_on_a_custom_checkbox_is_not_covered_by_its_own_box(b, site):
+    b.goto(site.url("covered.html"))
+    b.click("#accept")
+    agree = ref(b.snapshot(interactive=True)["text"], "input:checkbox", "I agree")
+    on_top = """(() => { const a = document.getElementById('agree'); a.scrollIntoView({ block: 'center' });
+      const r = a.getBoundingClientRect();
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2).className; })()"""
+    assert b.eval(on_top) == "box"  # a real click lands on the drawn box, which belongs to the input's label
+    b.click(agree, trusted=True)
+    assert b.eval("document.getElementById('agree').checked") is True
+    assert page_log(b, 2) == ["accept", "agree:trusted"]
+
+
 # ------------------------------------------------------------------ forms
 
 

@@ -5,6 +5,8 @@ import re
 import pytest
 from helpers import page_log, ref
 
+from webpilot.client import WebPilotError
+
 pytestmark = pytest.mark.e2e
 
 
@@ -42,6 +44,15 @@ def test_click_and_type_into_frames_by_ref(b, frames, trusted):
         b.type(ref(frames, "input:text", f"{name} input"), f"hello {name}", trusted=trusted)
     click = "click:trusted" if trusted else "click"
     assert page_log(b, 4) == [f"same:{click}", "same:value=hello Same", f"cross:{click}", "cross:value=hello Cross"]
+
+
+def test_trusted_click_refuses_a_frame_covered_in_the_parent_page(b, frames):
+    cross = ref(frames, "button", "Cross button")
+    b.eval("document.body.insertAdjacentHTML('beforeend', "
+           "'<div id=\"veil\" style=\"position:fixed;inset:0;z-index:9\" onclick=\"__log.push(`veil`)\">Wait</div>')")
+    with pytest.raises(WebPilotError, match=rf'{cross} \(button#child-btn "Cross button"\) is covered by div#veil "Wait"'):
+        b.click(cross, trusted=True, timeout=0.5)
+    assert b.eval("window.__log") == []
 
 
 def test_selector_and_text_targets_found_only_in_a_frame(b, frames):

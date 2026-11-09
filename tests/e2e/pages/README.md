@@ -17,6 +17,8 @@ origins). One concern each, plain HTML and JS, no build step. Handlers record wh
 - `busy.html`: a clock ticking every 100 ms, so the DOM never goes quiet.
 - `input.html`: inputs, a textarea, a contenteditable and two forms; keydown, input and submit are logged.
 - `long.html`: a page about 4000 px tall with a button in the middle, for scrolling and full screenshots.
+- `covered.html`: a button under a fixed cookie banner (its "Accept" removes it), a custom checkbox (a
+  transparent input under a drawn box) and `spin(ms)`, an overlay that goes away after `ms`, for `click --trusted`.
 
 The server also answers `/api/echo` (the request as JSON), `/api/slow?ms=`, `/set-cookie?name=&value=` and
 `/redirect?to=`, and serves `tests/pages/combobox/` under `/combobox/` (`test_combobox.py`, skipped until

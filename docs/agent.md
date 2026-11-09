@@ -96,7 +96,8 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
   it, another origin works only with CORS; it exits 1 on HTTP errors. Methods other than GET/HEAD need
   `--allow-write`, which you may pass only after the user confirmed that request.
 - Prefer `click`/`type` without `--trusted`. Use `--trusted` (real input through the debugger) only when the page
-  ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s.
+  ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s, and fails when another
+  element covers the target (a banner): close that first.
 
 ## Read when
 

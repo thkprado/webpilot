@@ -390,7 +390,48 @@ function locate(target: string) {
   if ("error" in el) return el;
   el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
   const r = el.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height, desc: short(el) };
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  return { x, y, w: r.width, h: r.height, desc: short(el), covered: coverAt(el, x, y) };
+}
+
+/** The element a real click at this viewport point lands on, descending into open shadow roots. */
+function hitAt(x: number, y: number): Element | null {
+  let hit = document.elementFromPoint(x, y);
+  while (hit?.shadowRoot) {
+    const inner = hit.shadowRoot.elementFromPoint(x, y);
+    if (!inner || inner === hit) break;
+    hit = inner;
+  }
+  return hit;
+}
+
+/** The parent element, or the host of the shadow root the element is in. */
+const parentOf = (el: Element): Element | null =>
+  el.parentElement || ((el.parentNode as ShadowRoot | null)?.host ?? null);
+
+/** Whether `el` is `anc` or inside it, across shadow roots. */
+function within(el: Element | null, anc: Element): boolean {
+  for (; el; el = parentOf(el)) if (el === anc) return true;
+  return false;
+}
+
+/**
+ * What a real click at (x, y) lands on instead of `el` (a banner, a modal), described, or null when it reaches
+ * `el`: the hit is `el`, inside it, around it, or in one of its labels (custom checkboxes draw a span over a
+ * transparent input). The description is of the outermost element around the hit that does not contain `el`,
+ * so the banner rather than the paragraph in it.
+ */
+function coverAt(el: Element, x: number, y: number): string | null {
+  const hit = hitAt(x, y);
+  if (!hit || within(hit, el) || within(el, hit)) return null;
+  if (Array.from((el as HTMLInputElement).labels || []).some((l) => within(hit, l))) return null;
+  let top = hit;
+  for (let p = parentOf(top); p && p !== document.body && p !== document.documentElement && !within(el, p); p = parentOf(p)) {
+    top = p;
+  }
+  const cls = typeof top.className === "string" ? top.className.trim().split(/\s+/)[0] : "";
+  const name = clean(top.getAttribute("aria-label") || (top as HTMLElement).innerText, 60);
+  return `${top.localName}${top.id ? "#" + top.id : cls ? "." + cls : ""}${name ? ` "${name}"` : ""}`;
 }
 
 function click(target: string) {
@@ -792,13 +833,17 @@ function frameInfo() {
   return { token: (w.__wpFrameToken as string | undefined) ?? null };
 }
 
-/** Viewport position of the content box of the child iframe with this token, or null if it is not in this frame. */
-function frameOffset(token: string) {
+/**
+ * Viewport position of the content box of the child iframe with this token, or null if it is not in this frame,
+ * and what in this frame covers the iframe at the child's point (x, y), if anything.
+ */
+function frameOffset(token: string, x = 0, y = 0) {
   const f = document.querySelector(`iframe[data-wp-frame="${CSS.escape(token)}"]`) as HTMLIFrameElement | null;
   if (!f) return null;
   const r = f.getBoundingClientRect();
   const cs = getComputedStyle(f);
-  return { x: r.left + f.clientLeft + parseFloat(cs.paddingLeft), y: r.top + f.clientTop + parseFloat(cs.paddingTop) };
+  const ox = r.left + f.clientLeft + parseFloat(cs.paddingLeft), oy = r.top + f.clientTop + parseFloat(cs.paddingTop);
+  return { x: ox, y: oy, covered: coverAt(f, ox + x, oy + y) };
 }
 
 const visibility = () => document.visibilityState;
