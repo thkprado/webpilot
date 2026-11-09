@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Basic</title>
+<script>window.__log = []; const log = (x) => window.__log.push(x);</script>
+</head>
+<body>
+<h1>Basic page</h1>
+<p>Some intro text.</p>
+
+<button id="go" onclick="log('go')">Go</button>
+<button onclick="log('next')">Próximo</button>
+<a id="to-a" href="nav-a.html">To page A</a>
+
+<!-- Code and inline payloads, not destinations: the snapshot shows the links without their href. -->
+<a href="javascript:log('js')">Script link</a>
+<a href="data:text/html,hi">Data link</a>
+<a href="vbscript:msgbox">VB link</a>
+
+<!-- Hidden: never in a snapshot. -->
+<button style="display:none">Display none button</button>
+<div style="visibility:hidden"><button>Invisible button</button></div>
+<p hidden>Hidden paragraph</p>
+
+<ul id="list">
+  <li>Item one</li>
+  <li>Item two</li>
+  <li>Item three</li>
+</ul>
+</body>
+</html>

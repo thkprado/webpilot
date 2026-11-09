@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Form</title>
+</head>
+<body>
+<h1>Form</h1>
+<form id="f">
+  <label for="name">Name</label> <input id="name" name="name">
+  <label>City <input id="city" name="city" value="São"></label>
+  <label for="color">Color</label>
+  <select id="color" name="color">
+    <option value="r">Red</option>
+    <option value="g">Green</option>
+    <option value="b">Blue</option>
+  </select>
+  <button type="submit">Send</button>
+</form>
+<p id="out"></p>
+<script>
+  window.__log = [];
+  for (const id of ["name", "city", "color"]) {
+    document.getElementById(id).addEventListener("change", () => window.__log.push("change:" + id));
+  }
+  document.getElementById("f").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    window.__log.push({ submitted: data });
+    document.getElementById("out").textContent = "Submitted " + data.name;
+  });
+</script>
+</body>
+</html>

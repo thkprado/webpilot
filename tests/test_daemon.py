@@ -1,22 +1,14 @@
 """Daemon protocol: a fake extension answers commands relayed from the Python client."""
 
-import asyncio
 import json
-import socket
 import threading
 
 import pytest
+from helpers import free_port, running_daemon
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import connect
 
 from webpilot.client import Browser, Connection, WebPilotError, _response_body
-from webpilot.server import Daemon
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
 
 @pytest.fixture
@@ -27,19 +19,8 @@ def daemon(tmp_path, monkeypatch):
     from webpilot import config
 
     token = config.load()["token"]
-    d = Daemon(token, port)
-    loop = asyncio.new_event_loop()
-    thread = threading.Thread(target=loop.run_until_complete, args=(d.run(),), daemon=True)
-    thread.start()
-    for _ in range(50):
-        try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.1).close()
-            break
-        except OSError:
-            threading.Event().wait(0.05)
-    yield {"port": port, "token": token, "daemon": d}
-    loop.call_soon_threadsafe(d.stop_event.set)
-    thread.join(5)
+    with running_daemon(token, port) as d:
+        yield {"port": port, "token": token, "daemon": d}
 
 
 def fake_extension(port: int, token: str, mode: str = "real", origin: str = "chrome-extension://abc",

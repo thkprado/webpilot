@@ -32,6 +32,9 @@ packages = ["src/webpilot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]  # tests/helpers.py, shared by the unit and the end-to-end tests
+markers = ["e2e: end-to-end tests that drive a headless browser with the built extension (uv run pytest -m e2e)"]
+addopts = "-m 'not e2e'"  # browser-free by default; a later -m on the command line overrides this
 
 [tool.ruff]
 target-version = "py311"

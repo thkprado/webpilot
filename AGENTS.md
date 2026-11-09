@@ -5,6 +5,7 @@
 - **Developing WebPilot itself:**
   - Python lives in `src/webpilot` (`uv run pytest -q`, `uv run ruff check`).
   - The extension lives in `extension/src` (`cd extension && npm run typecheck && npm run build`). After a build, reload the extension on the browser's extensions page (`edge://extensions`, `chrome://extensions`, ...).
+  - End-to-end tests (`tests/e2e/`, pages in `tests/e2e/pages/`) drive the built extension in a headless temporary browser against local pages: `uv run pytest -m e2e` after `npm run build` (`WEBPILOT_E2E_HEADED=1` to watch). Plain `uv run pytest` leaves them out. They never touch the user's browser.
   - Local pages for checking actions by hand live in `tests/pages/` (each has a README); `tests/pages/combobox/` covers custom dropdowns.
   - Parsers written by agents go in `parsers_user/`, with fixtures in `parsers_user/fixtures/<name>/`. That folder is local and git-ignored; `examples/parsers_user/` is the versioned example. Never commit saved pages from a logged-in browser.
 - **Preparing a release** (the `Changelog: prepare X.Y.Z` commit): first review what is open on GitHub and report it to the user:
