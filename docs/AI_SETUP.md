@@ -81,7 +81,7 @@ webpilot goto https://example.com -s
 
 - `status` should show the daemon and the extension connected (extension badge `ON`). If the extension is not
   connected, check the badge: `OFF` means the daemon is not running (it starts with the first command), `CFG`
-  means rerun `webpilot setup`, `DUP` means two profiles share a name. See the troubleshooting table in `README.md`.
+  means rerun `webpilot setup`, `DUP` means two profiles share a name. See `docs/troubleshooting.md`.
 - If several browser profiles are connected, **ask the user which one to use** (`webpilot profile list`), then pass `-p NAME`.
 - To test without touching the user's accounts, use `webpilot --temp goto https://example.com -s`. The first
   run downloads Playwright's Chromium (one-time), so it can take a minute.
@@ -107,10 +107,10 @@ install for the ones the user chose (names: `claude`, `codex`, `antigravity` or 
 webpilot skill install claude pi            # global; add --project to use the current project's skills folder
 ```
 
-It writes `webpilot/SKILL.md` pointing at `<webpilot>/README.md` and refuses to replace a webpilot skill it did not
+It writes `webpilot/SKILL.md` pointing at `<webpilot>/docs/agent.md` and refuses to replace a webpilot skill it did not
 write (if it reports one, show it to the user and ask before rerunning with `--force`). `webpilot skill uninstall NAME`
 removes it again. For a harness with Agent Skills that is not in that list, copy `src/webpilot/SKILL.md` into its
-skills folder as `webpilot/SKILL.md`, replacing `<readme>` with the absolute path of `<webpilot>/README.md`.
+skills folder as `webpilot/SKILL.md`, replacing `<guide>` with the absolute path of `<webpilot>/docs/agent.md`.
 
 Tell the user the skill becomes available in new sessions (Claude Code: also as `/webpilot`).
 
@@ -121,8 +121,8 @@ section "Making WebPilot known to other agents"). Append it; do not rewrite the 
 ## Browser (WebPilot)
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
 It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
-Before first use in a session, read <webpilot>/README.md fully (sections 2+).
-On a site you may have used before, first check its site notes and `webpilot script` (README §2).
+Before first use in a session, read <webpilot>/docs/agent.md fully.
+On a site you may have used before, first check its site notes and `webpilot script` (see the guide).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
 

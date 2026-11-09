@@ -10,7 +10,7 @@ from .config import PROJECT_ROOT
 
 TEMPLATE = Path(__file__).with_name("SKILL.md")
 MARKER = "Installed by `webpilot skill install`"
-README_URL = "https://github.com/thkprado/webpilot/blob/main/README.md"
+GUIDE_URL = "https://github.com/thkprado/webpilot/blob/main/docs/agent.md"
 
 
 @dataclass(frozen=True)
@@ -49,10 +49,10 @@ def skill_file(h: Harness, home: Path, project: Path | None = None) -> Path:
 
 
 def render() -> str:
-    """SKILL.md pointing at this clone's README, or at GitHub for an install without the repository."""
-    readme = PROJECT_ROOT / "README.md"
-    where = readme.as_posix() if readme.exists() else README_URL
-    return TEMPLATE.read_text("utf-8").replace("<readme>", where)
+    """SKILL.md pointing at this clone's agent guide, or at GitHub for an install without the repository."""
+    guide = PROJECT_ROOT / "docs" / "agent.md"
+    where = guide.as_posix() if guide.exists() else GUIDE_URL
+    return TEMPLATE.read_text("utf-8").replace("<guide>", where)
 
 
 def ours(path: Path) -> bool:

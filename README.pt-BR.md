@@ -2,15 +2,15 @@
 
 [English](README.md) · **Português**
 
-> A versão em inglês ([README.md](README.md)) é a referência e a que os agentes devem ler. Esta tradução existe para
-> facilitar a leitura por pessoas; em caso de diferença, vale o inglês.
+> A versão em inglês ([README.md](README.md)) é a referência. Esta tradução existe para facilitar a leitura por
+> pessoas; em caso de diferença, vale o inglês.
 
 Permite que agentes de código (Claude Code, Codex, Gemini CLI/Antigravity, pi, Cursor ou qualquer coisa com um shell) controlem um navegador:
 
 - **real**: o seu próprio navegador baseado em Chromium (Chrome, Edge, Brave, Vivaldi, Opera, ...), com as suas sessões e logins, por meio da extensão WebPilot.
 - **temp**: um Chromium temporário com um perfil descartável (`--temp`).
 
-As abas dos agentes no navegador real ficam num grupo de abas roxo chamado **WebPilot**. **Agentes: este arquivo é tudo o que vocês precisam. Leiam-no inteiro antes de usar o navegador.**
+As abas dos agentes no navegador real ficam num grupo de abas roxo chamado **WebPilot**. **Agentes: leiam [docs/agent.md](docs/agent.md) inteiro antes de usar o navegador; este README é para pessoas.**
 
 ---
 
@@ -62,14 +62,14 @@ Sem `uv tool install`, use `uv run --project <webpilot> webpilot ...`.
 
 ### Tornando o WebPilot conhecido por outros agentes
 
-Os agentes só usam o WebPilot se as instruções deles o mencionarem. Rode `uv tool install --editable .` primeiro (para que `webpilot` funcione em qualquer pasta; confira com `webpilot status`) e depois cole este trecho no arquivo de instruções de cada ferramenta, trocando `<webpilot>` pelo caminho absoluto da sua pasta do WebPilot. Ele só aponta para cá, então este README continua sendo a única fonte de verdade:
+Os agentes só usam o WebPilot se as instruções deles o mencionarem. Rode `uv tool install --editable .` primeiro (para que `webpilot` funcione em qualquer pasta; confira com `webpilot status`) e depois cole este trecho no arquivo de instruções de cada ferramenta, trocando `<webpilot>` pelo caminho absoluto da sua pasta do WebPilot. Ele só aponta para o guia dos agentes, então [docs/agent.md](docs/agent.md) continua sendo a única fonte de verdade:
 
 ```markdown
 ## Browser (WebPilot)
 To browse the web, read pages, search, or interact with sites, use the `webpilot` CLI.
 It drives the user's real Chromium-based browser (Chrome, Edge, Brave, ...; logged-in sessions) or a temporary one (`--temp`).
-Before first use in a session, read <webpilot>/README.md fully (sections 2+).
-On a site you may have used before, first check its site notes and `webpilot script` (README §2).
+Before first use in a session, read <webpilot>/docs/agent.md fully.
+On a site you may have used before, first check its site notes and `webpilot script` (see the guide).
 Real browser = the user's real accounts: never buy, send, delete, or change settings without asking.
 ```
 
@@ -99,174 +99,50 @@ webpilot skill uninstall copilot         # ou --all; só remove uma skill que el
 | pi (`pi`) | `~/.pi/agent/skills/webpilot/` | `.pi/skills/webpilot/` |
 | GitHub Copilot CLI (`copilot`) | `~/.copilot/skills/webpilot/` | `.github/skills/webpilot/` |
 
-A skill aponta para o `README.md` deste clone. Rode `webpilot skill install` de novo depois de mover o clone; `webpilot skill list` mostra `outdated` quando uma skill instalada difere da atual. O Copilot CLI também lê `~/.claude/skills/`, então numa máquina com os dois basta um deles.
+A skill aponta para o `docs/agent.md` deste clone. Rode `webpilot skill install` de novo depois de mover o clone; `webpilot skill list` mostra `outdated` quando uma skill instalada difere da atual. O Copilot CLI também lê `~/.claude/skills/`, então numa máquina com os dois basta um deles.
 
 Sem `uv tool install`, troque `webpilot` no trecho por `uv run --project <webpilot> webpilot`.
 
-## 2. Referência rápida para agentes
+## 2. Como os agentes usam
+
+Os agentes rodam comandos `webpilot` no shell deles (ou num script Python) e leem os resultados:
 
 ```bash
-webpilot goto https://site.com -s        # navega + imprime o snapshot (-s)
-webpilot snapshot                        # texto da página com refs: [e12 button "Send"]
-webpilot snapshot -i                     # só elementos interativos (curto)
-webpilot snapshot -S "main"              # só uma subárvore CSS
-webpilot click e12                       # clica por ref | seletor CSS | text=Rótulo | text=Next|Próximo|›
-webpilot click e12 -s                    # ...depois imprime um snapshot da página resultante
-webpilot click e12 --wait-text "Step 2"  # ...depois espera o próximo estado (--wait-for SELETOR também funciona)
-webpilot submit [e7] -s                  # envia o formulário em volta de e7 (ou o focado/primeiro)
-webpilot type e7 "hello" --submit        # preenche e pressiona Enter
-webpilot type "select#country" "Brazil"  # escolhe uma opção de <select> pelo texto
-webpilot select e16 "billing"            # escolhe em um dropdown customizado (role=combobox, react-select) ou <select>
-webpilot press Escape                    # teclas: Enter Tab Escape ArrowDown PageDown a Control+a ...
-webpilot scroll down | up | top | bottom | e40
-webpilot wait --text "Order confirmed" --timeout 20  # exit 1 se não aparecer a tempo
-webpilot wait --text "Loading" --gone    # espera até desaparecer
-webpilot extract [URL]                   # JSON do parser do site, ou snapshot + dica se não houver parser
-webpilot search "query" -n 5             # Google (padrão) | -e ddg ; imprime JSON com título/url/trecho
-webpilot text -S article                 # innerText puro
-webpilot html -S "#content" -o page.html # HTML bruto (grande! prefira snapshot/extract)
-webpilot eval "document.title"           # JS na página; retorna JSON
-webpilot eval "fetch('/api/x').then(r=>r.json())" --timeout 300   # promises são aguardadas (padrão 60 s)
-webpilot eval "(t) => (document.querySelector('#body').value = t).length" --arg @notes.md   # dados como argumentos
-webpilot eval "document.querySelector('canvas').toDataURL()" --out chart.png   # para um arquivo; data URLs são decodificadas
-webpilot fetch /api/items [-H "K: V"] [--timeout 120] [-o arquivo] [--raw]   # HTTP com a sessão da aba; saída JSON
-webpilot screenshot [-o arquivo.png] [--full]   # imprime o caminho; abra a imagem para ver
-webpilot tabs | tab new [URL] | tab use ID | tab close [ID] | tab info
-webpilot back | forward | reload
-webpilot captcha                         # clica em uma caixa "Não sou um robô" (sempre sob pedido)
-webpilot --temp <comando>                # usa o navegador temporário (inicia automaticamente)
-webpilot --tab ID <comando>              # age em uma aba específica uma vez
-webpilot -p NOME <comando>               # usa este perfil do navegador (só necessário quando vários estão conectados)
-webpilot profile list                    # perfis conectados e a aba ativa de cada um
-webpilot status                          # estado do daemon / da extensão
+webpilot goto https://news.ycombinator.com -s     # abre uma página e mostra um snapshot com refs: [e12 link "More"]
+webpilot click e12 -s                             # age numa ref e lê a página seguinte
+webpilot select e16 "billing"                     # escolhe num dropdown
+webpilot extract                                  # o JSON compacto de um parser do site, quando houver
+webpilot --temp search "python uv" -n 5           # o mesmo, num navegador descartável
 ```
 
-Resultados estruturados são impressos como JSON. Snapshots são impressos como texto. Erros vão para o stderr com código de saída 1.
-Colchetes nas linhas acima (`[URL]`, `[-o arquivo]`) marcam partes opcionais; não são digitados.
+O que os agentes leem fica em `docs/`, em inglês:
 
-Scripts locais (§3) rodam um fluxo inteiro com a sessão do navegador. Estas linhas podem ser copiadas como estão; `hn_top` é o script de exemplo, então só funciona depois de copiado para uma pasta `scripts/` (§3):
+| Arquivo | Quando ler |
+|---|---|
+| [docs/agent.md](docs/agent.md) | em toda sessão, antes do primeiro uso: comandos, fluxo, regras |
+| [docs/python-api.md](docs/python-api.md) | antes de escrever um script (`webpilot.Browser`) ou chamar a API de um site com a sessão |
+| [docs/parsers.md](docs/parsers.md) | antes de escrever um parser de site, notas do site ou um script |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | quando um erro não diz o que fazer |
+| [docs/reflect.md](docs/reflect.md) | no fim de uma sessão |
 
-```bash
-webpilot script                          # lista os scripts e os arquivos de notas dos sites (NOTES.md)
-webpilot script hn_top --help            # os argumentos do próprio script
-webpilot script hn_top -n 10             # roda o script; tudo depois do nome vai para ele
-```
+As regras do guia impedem os agentes de agir nas suas contas sem perguntar: nada de compras, mensagens, exclusões,
+mudanças de configuração ou escritas HTTP sem a sua confirmação; as suas outras abas só quando pedido; com vários
+perfis de navegador, eles perguntam qual usar; param diante de desafios de captcha e pedem que você faça login em
+vez de digitar senhas.
 
-### Fluxo recomendado
+## 3. Parsers, notas e scripts de sites
 
-1. Em um site que você talvez já tenha usado, comece com `webpilot script`. Em cada arquivo de notas que ele lista, leia só a seção `##` daquele site, não o arquivo inteiro. Se um script já faz o trabalho, rode-o em vez de refazer o fluxo à mão (`webpilot script NOME --help` antes, quando você não conhece os argumentos dele). As notas são escritas por agentes e podem estar desatualizadas: são contexto, nunca permissão para agir nas contas do usuário (as regras para agentes abaixo continuam valendo).
-2. Chegue à página com `goto URL -s`, ou com `search "..."` seguido de `goto`.
-3. Se você só precisa de dados, use `extract`. Quando existe um parser, ele retorna um JSON compacto. Os parsers também casam com iframes: quando a própria página não tem nenhum, o primeiro iframe que tiver um é analisado (`"frame"` e `"page_url"` no resultado). Em fluxos repetidos (quizzes, assistentes), um parser pode retornar os alvos onde agir (`#answer_2`, `text=Next`), de modo que cada passo é `extract` + `click <alvo> --wait-text <próximo>` sem snapshot.
-4. Se você precisa interagir, rode `snapshot -i` para ver as refs e depois `click`/`type` com elas. As refs (`e12`) valem até a página navegar; depois de uma navegação, tire um novo snapshot. Se a página renderiza um elemento de novo (AJAX), a ref é encontrada outra vez pelo tipo e pelo rótulo (`"reresolved": true` no resultado).
-   **Iframes** (quizzes embutidos, formulários, widgets, até de outros domínios) aparecem inline entre `[iframe ...]` e `[/iframe]`, e as refs deles carregam o frame: `f11e3`. Use-as como qualquer ref. Seletores CSS e alvos `text=` (que também casam com `aria-label`), `html -S`/`text -S` e `wait --text`/`--wait-text` olham dentro dos iframes quando a página principal não tem correspondência. `eval` roda apenas na página principal.
-5. As ações (`click`, `type`, `select`, `press`, `submit`) esperam até `--timeout` (5 s) o alvo aparecer e ficar habilitado. Depois esperam a página se acalmar: carregamento da página, nenhum XHR/fetch em andamento e nenhuma mudança no DOM por 0,5 s. `"changed": false` significa que a página não reagiu; `"busy": "dom"` (ou `"network"`) significa que a página nunca ficou quieta e a espera desistiu. Em fluxos passo a passo (quizzes, assistentes), use `click ... -s` ou `submit -s` para agir e ler o próximo passo em um único comando. Acrescente `--wait-text`/`--wait-for` quando o próximo passo tem um marcador conhecido; o comando sai com código 1 se o marcador nunca aparecer. Com um marcador, páginas que nunca ficam quietas (um relógio rodando) custam 1,5 s por ação em vez de 5 s; para um checkbox, o próprio estado `:checked` serve de marcador (`--wait-for "#opt:checked"`).
-6. **Dropdowns customizados** (`role=combobox`, como o react-select): o snapshot os mostra como `[e16 combobox "How can we help?" value="I have an account or billing issue" expanded=false]`, com o valor que o campo exibe. Em uma lista aberta, as opções são marcadas ` selected` (o valor atual) e ` active` (aquela em que as setas estão). `select <ref> <texto>` escolhe em um comando. Ele digita o texto para filtrar quando o campo permite busca, vai até a opção com as setas e pressiona Enter, tudo com eventos sintéticos, e depois confere o que o campo mostra (`"option"` e `"value"` no resultado). Sai com código 1 quando nenhuma opção casa (o erro lista as opções) ou quando o campo não mostra a opção depois. Clicar no input e depois em uma opção, ou pressionar teclas em vários comandos, falha se o menu fechar no meio (ele fecha quando a janela do navegador perde o foco). Quando você faz `click` em uma opção de um combobox, o resultado diz se o campo agora a mostra: `"selected": true`, ou `"selected": false` com o `"value"` do campo e uma `"hint"` com o comando `select` a rodar no lugar.
-7. Para páginas longas, restrinja a leitura com `snapshot -S <seletor>` ou `--max N` em vez de ler tudo.
-8. Verificações visuais: `screenshot` e depois abra o PNG.
-9. **Dados no `eval`: passe-os como argumentos, nunca cole no código.** Texto colado dentro de uma string JS quebra com aspas, crases e quebras de linha, e uma barra de escape perdida no caminho (um `\\n` que chega como quebra de linha de verdade) é um erro de sintaxe. Em vez disso, faça da expressão uma função e passe os valores: `eval "(t) => ..." --arg TEXTO` (repetível; `--arg @ARQUIVO` lê um arquivo, `@-` lê o stdin, `@@x` é o literal `@x`), `--args-json '[...]'` para outros valores JSON, ou `eval(fn, args=[...])` em Python. Os valores viajam como JSON, separados do código. Erros de sintaxe informam a linha, a coluna e um trecho com um cursor, com as quebras de linha mostradas como `⏎`:
-   ```text
-   error: SyntaxError: Invalid or unexpected token at line 2, column 24:
-     …#release_body');⏎  return t.value.split('⏎')[0]; })()
-                                              ^
-   ```
+Os agentes ficam mais rápidos nos sites que usam com frequência escrevendo, em geral durante a reflexão de fim de
+sessão:
 
-### Regras para agentes
+- **parsers** (`parsers_user/<nome>.py`): transformam o HTML de um site em JSON compacto, usado pelo `extract`;
+- **notas do site** (`parsers_user/NOTES.md`): fluxos e particularidades, uma seção `##` por domínio;
+- **scripts** (`parsers_user/scripts/<nome>.py`): fluxos repetidos com `webpilot script <nome>`.
 
-- **Navegador real = as contas reais do usuário.** Não compre nada, não envie mensagens, não apague dados, não mude configurações nem aceite termos sem confirmação explícita do usuário.
-- Só opere as outras abas do usuário (`tab use`) quando for pedido. Novas abas vão para o grupo WebPilot.
-- **Perfis do navegador são contas separadas**, possivelmente de pessoas diferentes. Se um comando falhar com "several browser profiles are connected", pergunte ao usuário qual perfil usar (`webpilot profile list` mostra os nomes); nunca escolha por conta própria. Depois de informado, passe `-p NOME` em todos os comandos (ou `Browser(profile=NOME)`) e não troque de perfil sem que peçam.
-- Captcha: o `goto` não mexe em captchas, a menos que o usuário tenha ativado `"auto_captcha": true` em `~/.webpilot/config.json` (desativado por padrão); nesse caso ele clica automaticamente em caixas "I'm not a robot" (resultado no campo `captcha`). `webpilot captcha` clica em uma sob pedido. Se aparecer `challenge: true`, **pare e peça ao usuário** que resolva no navegador e depois continue. Nunca tente resolver desafios de imagem.
-- Logins: no navegador real as sessões do usuário já existem. Se for preciso fazer login, peça ao usuário que entre; não digite senhas, a menos que o usuário as forneça para esse fim.
-- `fetch` chama a API de um site com a sessão do usuário, a partir da página da aba atual (URLs relativas são resolvidas em relação a ela; outra origem só funciona se permitir CORS). Ele imprime `status`, `headers` e `body` (já interpretado quando é JSON) e sai com código 1 em erros HTTP. Métodos diferentes de GET/HEAD são recusados, a menos que você passe `--allow-write`, o que só pode ser feito depois que o usuário confirmar aquela requisição.
-- Prefira `click`/`type` sem `--trusted`. Use `--trusted` (mouse/teclado reais pela API de depuração) só quando a página ignora o clique sintético. Ele mostra a barra "depurando este navegador" por cerca de 20 s. A entrada real se perde quando a janela do navegador está minimizada ou coberta por outras janelas, então `click --trusted`, `type --trusted`/`--submit` e `press` falham primeiro com um erro dizendo isso (a aba do agente pode estar em segundo plano de uma janela visível).
-
-### API Python
-
-Para laços e scripts, a API é mais rápida que muitas chamadas de CLI porque mantém uma conexão aberta:
-
-```python
-from webpilot import Browser
-
-with Browser() as b:                    # Browser("temp") para o navegador temporário; Browser(profile="work")
-    b.goto("https://news.ycombinator.com")
-    data = b.extract()                  # {"parser": ..., "data": ...} ou {"snapshot": ...}
-    snap = b.snapshot(interactive=True)["text"]
-    b.click("text=More")
-    results = b.search("python uv", n=5)["results"]
-```
-
-Métodos: `goto, back, forward, reload, snapshot, html, text, click, type, select, press, submit, scroll, wait, eval, fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`. `click`/`type`/`select`/`press`/`submit` aceitam `timeout=`, `wait_text=`, `wait_selector=` e `wait_timeout=`; o resultado deles tem `waited: {"found", "ms"}`. `wait(selector=None, text=None, timeout=10, gone=False)` devolve `{"found", "ms"}` e não lança exceção quando o tempo esgota: confira `found`. `eval(expression, timeout=60, args=None)` aguarda promises por até `timeout` segundos; com `args` (uma lista de valores JSON), `expression` precisa ser uma função e é chamada com eles, e só o número e o tamanho deles vão para o log da sessão. `fetch(url, method="GET", headers=None, data=None, json=None, timeout=120, allow_write=False, raw=False)` retorna `{"status", "statusText", "url", "headers", "body"}`; `body` é JSON interpretado (a menos que `raw`), texto, ou bytes para conteúdo binário.
-
-Rode scripts com `uv run --project <webpilot> python script.py`.
-
-### APIs de sites com a sessão do navegador
-
-Quando um site em que o usuário está logado tem uma API JSON (dashboards, painéis de administração), chame-a com `fetch` em vez de ler páginas: abra o site uma vez e depois use URLs relativas. Exemplo com o Grafana consultando o Loki pelo proxy de datasource dele:
-
-```python
-from urllib.parse import urlencode
-from webpilot import Browser
-
-with Browser() as b:
-    b.goto("https://grafana.example.com/")
-    ds = b.fetch("/api/datasources")["body"]          # [{"uid", "type", "name", ...}]
-    loki = next(d["uid"] for d in ds if d["type"] == "loki")
-    q = urlencode({"query": '{app="api"} |~ "conex.o recusada"', "limit": 5000,
-                   "start": "2026-10-05T00:00:00Z", "end": "2026-10-05T06:00:00Z"})
-    res = b.fetch(f"/api/datasources/proxy/uid/{loki}/loki/api/v1/query_range?{q}", timeout=300)
-    streams = res["body"]["data"]["result"]
-```
-
-Pela CLI: `webpilot fetch /api/datasources`. Limites do Loki que vale conhecer:
-
-- `limit` acima de `max_entries_limit_per_query` (normalmente 5000) é rejeitado: divida intervalos longos em janelas menores.
-- Uma consulta retorna no máximo 500 séries: restrinja o seletor de labels ou agregue.
-- Linhas de log escritas em JSON trazem os acentos escapados (`ç`), então uma regex com `ç`/`ã` nunca casa: use `.` no lugar (`conex.o`).
-
-## 3. Parsers de sites (faça isso para sites que você visita com frequência)
-
-Um parser transforma o HTML de um site em um JSON compacto, para que você não precise ler a página inteira de novo. O `extract` usa um automaticamente sempre que a URL casa.
-
-**Quando escrever um:** o mesmo site é lido duas ou mais vezes, ou o `reflect-data` sugere.
-
-**Onde:** `parsers_user/<nome>.py`. Ele é encontrado automaticamente e tem precedência sobre os parsers embutidos. Os parsers embutidos ficam em `src/webpilot/parsers/` (google, duckduckgo), com os fixtures em `tests/fixtures/`.
-
-`parsers_user/` é local de cada usuário e não é versionado (está no `.gitignore`): os fixtures são páginas salvas, e as notas e os scripts refletem a sua própria navegação. Para começar um, copie o exemplo: `cp -r examples/parsers_user parsers_user` (um parser do Hacker News com o fixture, o `NOTES.md` e o `scripts/hn_top.py`).
-
-**Modelo:**
-
-```python
-"""Product page on loja.example.com."""
-from selectolax.lexbor import LexborHTMLParser
-
-NAME = "loja_example"
-MATCH = [r"^https://(www\.)?loja\.example\.com/p/"]   # regexes contra a URL
-
-def parse(html: str, url: str) -> dict:
-    tree = LexborHTMLParser(html)
-    def txt(sel):
-        n = tree.css_first(sel)
-        return n.text(separator=" ", strip=True) if n else None
-    return {
-        "title": txt("h1"),
-        "price": txt("[data-testid=price]"),
-        "items": [li.text(strip=True) for li in tree.css("ul.specs li")],
-    }
-```
-
-**Passos:**
-
-1. Na página alvo, veja a estrutura: `webpilot snapshot`, ou `webpilot html -S <container> -o tmp.html` e leia o arquivo.
-2. Salve um fixture com `webpilot parser fixture <NOME>`. Isso grava `parsers_user/fixtures/<NOME>/*.html` com a URL na primeira linha. Para conteúdo dentro de um iframe, acrescente `--frame <texto na URL dele>`; depois que o parser existe, o iframe que o `MATCH` dele seleciona é salvo automaticamente.
-3. Escreva o parser. Prefira seletores estáveis: `id`, `data-*`, `aria-*` e tags semânticas. Evite nomes de classe CSS aleatórios.
-4. Teste com `webpilot parser test <NOME> --show` (`uv run pytest` também testa todos os fixtures).
-5. Use com `webpilot extract`.
-
-Regras: parsers são puros. Recebem HTML e retornam um dict ou uma lista, sem acesso à rede e sem navegador. Retorne `{}` ou `[]` quando não encontrar nada; o `reflect-data` sinaliza isso como uma possível mudança de layout. `webpilot parser list` mostra os parsers, seus padrões, fixtures e erros de carregamento.
-
-**Notas de sites e scripts.** Escreva notas sobre os sites (fluxos, particularidades, onde clicar) em `parsers_user/NOTES.md`, um título `##` por domínio. Um fluxo que vai ser rodado de novo (um laço, chamadas de API com a sessão do navegador) vai em `parsers_user/scripts/<nome>.py`, rodado com `webpilot script <nome>`. Um script documenta o próprio uso: a primeira linha da docstring diz o que ele faz (`webpilot script` a mostra), e o `help=` do argparse descreve cada argumento (`--help` os mostra). A nota só aponta para o script, de modo que os argumentos ficam descritos em um lugar só. Arquivos que começam com `_` são auxiliares que um script pode importar; não são listados.
-
-**Ordem de busca:** `WEBPILOT_PARSERS_DIR` (quando definida) e depois `parsers_user/` neste clone, tanto para parsers quanto para `scripts/` e `NOTES.md`, a partir de qualquer diretório de trabalho. Um parser ou script encontrado primeiro tem precedência sobre outro de mesmo nome encontrado depois; todo `NOTES.md` encontrado vale. Os fixtures são lidos só de `parsers_user/fixtures/` do clone.
+`parsers_user/` é local de cada usuário e não é versionado (está no `.gitignore`): fixtures são páginas salvas, e
+notas e scripts refletem a sua própria navegação. Para começar pelo exemplo (um parser do Hacker News com o fixture
+dele, notas e `scripts/hn_top.py`): `cp -r examples/parsers_user parsers_user`. `WEBPILOT_PARSERS_DIR` acrescenta
+outra pasta, procurada primeiro. Detalhes: [docs/parsers.md](docs/parsers.md) (em inglês).
 
 ## 4. Reflexão (fim da sessão)
 
@@ -287,27 +163,18 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 | Screenshots | `~/.webpilot/screenshots/` |
 | Navegador temporário | Chromium do Playwright; perfil em `%TEMP%\webpilot-temp-*`, apagado por `webpilot temp stop` (ou `webpilot stop`, que também para o daemon); `webpilot temp start --headless` para modo headless. Ele inicia com a detecção de oclusão do Chromium desligada, então uma janela coberta por outras ainda recebe entrada real; uma minimizada não |
 
+- `auto_captcha: true` faz o `goto` clicar sozinho nas caixas "I'm not a robot" (resultado no campo `captcha`); desligado por padrão. Desafios de imagem nunca são resolvidos: o agente pede a você.
 - `blocked_domains` (por exemplo `["mybank.example.com"]`) impede que o agente navegue para esses domínios e seus subdomínios, ou opere neles, no navegador real. Maiúsculas, um `*.` no início e um ponto no final não fazem diferença.
 - Variáveis de ambiente: `WEBPILOT_MODE=temp`, `WEBPILOT_SESSION=nome`, `WEBPILOT_PROFILE=nome`, `WEBPILOT_HEADLESS=1`, `WEBPILOT_PORT`, `WEBPILOT_DIR`, `WEBPILOT_PARSERS_DIR`.
 
 ### Solução de problemas
 
-| Erro | O que fazer |
+Os erros dizem o que fazer em seguida; [docs/troubleshooting.md](docs/troubleshooting.md) (em inglês) cobre o resto (o selo da extensão está explicado na Instalação, acima). Para pessoas:
+
+| Sintoma | O que fazer |
 |---|---|
-| "extension (real browser) is not connected" | O navegador precisa estar aberto com a extensão carregada; confira o selo e o `webpilot status`. Depois de ficar ocioso, a primeira conexão pode levar até 30 s. |
-| "several browser profiles are connected" | Pergunte ao usuário qual perfil usar e depois acrescente `-p NOME`. O usuário pode definir um padrão com `"profile"` em `~/.webpilot/config.json`. |
-| "browser profile 'X' is not connected" | A janela do navegador daquele perfil está fechada ou a extensão dele está desligada; o erro lista os nomes conectados. |
-| "could not run script in this tab" | Página restrita (`chrome://`, `edge://`, a loja de extensões, PDF). Navegue para uma página normal. |
-| `fetch`: "open the site first" | `fetch` roda a partir da página da aba atual: faça `goto` no site e repita. |
-| `fetch`: "C:/Program Files/Git/... is a Windows path" | O Git Bash reescreveu a URL relativa. Coloque `MSYS_NO_PATHCONV=1` antes do comando, ou passe a URL completa. |
-| "ref eN not found" / "ref eN (...) is gone" | A página navegou ou o elemento sumiu; rode `snapshot` de novo. |
-| Ação retornou `"changed": false` | O clique não fez nada: tente `--trusted`, `submit` ou outro elemento. |
-| Opção de dropdown clicada (`"changed": true`, `"selected": false`) ou escolhida com teclas, mas nada foi escolhido | Use `select <ref do combobox> <texto>` (a `hint` no resultado traz o comando): um comando só, então o menu não pode fechar no meio. "not a combobox": mire o input com `role=combobox` (ou um elemento em volta dele). "no list of options opened": o campo não é um dropdown no estilo listbox; tente `click` e depois `snapshot -i`. |
-| "ref eN (option ...) is gone" depois de abrir um dropdown | O menu fechou entre os comandos (ele fecha quando a janela do navegador perde o foco). Use `select <ref do combobox> <texto>`. |
-| "the browser window is minimized or covered, so real input would be lost" | Vindo de `--trusted`, `type --submit` ou `press`. Peça ao usuário que traga a janela do navegador para a frente, ou use `click`/`type` sem `--trusted`, `submit` em vez de `--submit`, ou `select`. |
-| O snapshot depois de uma ação ainda mostra "Loading..." | Acrescente `--wait-text`/`--wait-for` com algo do próximo estado, ou `wait --text "Loading" --gone`. |
-| O Google mostrou "unusual traffic" | Peça ao usuário que resolva o captcha, ou use `search -e ddg`. |
 | Console da extensão: "WebSocket connection to 'ws://127.0.0.1:8765/' failed: ... ERR_CONNECTION_REFUSED" | Normal enquanto o daemon não está rodando: a extensão tenta de novo a cada poucos segundos, para conectar assim que o daemon iniciar. Para silenciar, desligue a extensão na página de extensões do navegador e ligue de novo antes de usar o WebPilot. |
+| Depois de o navegador ficar ocioso, o primeiro comando demora | A extensão reconecta primeiro; isso pode levar até 30 s. |
 | Você mudou o código da extensão | Rode `npm run build` em `extension/` e depois clique em recarregar no card dela na página de extensões do navegador. |
 
 ## 6. Arquitetura

@@ -20,10 +20,10 @@ def run(*args):
     return CliRunner().invoke(cli.app, ["skill", *args])
 
 
-def test_render_points_at_this_readme():
+def test_render_points_at_the_agent_guide():
     text = skills.render()
     assert text.startswith("---\nname: webpilot\n")
-    assert (PROJECT_ROOT / "README.md").as_posix() in text and "<readme>" not in text
+    assert (PROJECT_ROOT / "docs" / "agent.md").as_posix() in text and "<guide>" not in text
 
 
 def test_install_update_and_uninstall(home):

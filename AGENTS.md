@@ -1,6 +1,6 @@
 # Agents
 
-- **Using the browser:** read `README.md`, which has the full reference for the `webpilot` CLI and the Python API.
+- **Using the browser:** read `docs/agent.md`, the guide for agents; it says when to read the other guides in `docs/` (Python API, parsers, troubleshooting).
 - **"Reflect" / end of session:** follow `docs/reflect.md`.
 - **Developing WebPilot itself:**
   - Python lives in `src/webpilot` (`uv run pytest -q`, `uv run ruff check`).

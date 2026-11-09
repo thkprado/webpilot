@@ -375,7 +375,7 @@ class Browser:
                 "url": page["url"],
                 "title": page["title"],
                 "parser": None,
-                "hint": "No parser for this site. If you will read it again, write one (see README: Parsers).",
+                "hint": "No parser for this site. If you will read it again, write one (see docs/parsers.md in the WebPilot folder).",
                 "snapshot": snap["text"],
             }
         start = time.perf_counter()

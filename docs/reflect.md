@@ -4,7 +4,7 @@ Goal: make the next session faster and cheaper by learning from this one's workf
 
 **Parser, script or notes?** Choose by where the data comes from:
 
-- Data in the page's static HTML: a pure parser (README §3).
+- Data in the page's static HTML: a pure parser ([parsers.md](parsers.md)).
 - Data from an API, or loaded dynamically after the page: a script in `parsers_user/scripts/` that uses the browser session (`fetch`, `webpilot.Browser`). A large API output is not a reason for an HTML parser.
 - An interactive flow (forms, wizards, filters): the steps in the notes, plus a script when the flow will be run again.
 
@@ -12,7 +12,7 @@ A script documents its usage in its docstring and argparse `help=`; its note onl
 
 1. Run `webpilot reflect-data`. Add `--days 7` when the session was short or spanned several days.
 2. For each item under **Suggestions**:
-   - **"Write a parser for X"**: if the site will be read again, open a representative page and follow README §3:
+   - **"Write a parser for X"**: if the site will be read again, open a representative page and follow [parsers.md](parsers.md):
      1. `webpilot parser fixture <name>`
      2. Write `parsers_user/<name>.py`.
      3. `webpilot parser test <name> --show`
