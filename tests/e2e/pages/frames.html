@@ -15,9 +15,10 @@
 <iframe id="same" title="Same frame" src="frame-child.html?name=same" width="420" height="220"></iframe>
 <iframe id="cross" title="Cross frame" width="420" height="220"></iframe>
 <script>
-  // ?other=http://127.0.0.1:PORT: the same child page from another origin.
-  const other = new URLSearchParams(location.search).get("other");
-  if (other) document.getElementById("cross").src = other + "/frame-child.html?name=cross";
+  // ?port=PORT: the same child page from another origin (another port on 127.0.0.1). Only a number is taken,
+  // so the parameter can't point the frame anywhere else.
+  const port = Number.parseInt(new URLSearchParams(location.search).get("port"), 10);
+  if (port > 0 && port < 65536) document.getElementById("cross").src = `http://127.0.0.1:${port}/frame-child.html?name=cross`;
 </script>
 </body>
 </html>

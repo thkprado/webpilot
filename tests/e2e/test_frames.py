@@ -11,7 +11,7 @@ pytestmark = pytest.mark.e2e
 @pytest.fixture
 def frames(b, site):
     """frames.html with one same-origin and one cross-origin child, both loaded; returns its snapshot text."""
-    b.goto(site.url(f"frames.html?other={site.other}"))
+    b.goto(site.url(f"frames.html?port={site.other.rsplit(':', 1)[1]}"))
     return b.snapshot()["text"]
 
 

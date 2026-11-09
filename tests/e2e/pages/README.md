@@ -7,8 +7,8 @@ origins). One concern each, plain HTML and JS, no build step. Handlers record wh
 - `basic.html`: buttons, links (including `javascript:`/`data:`/`vbscript:` hrefs), hidden elements, a list.
 - `form.html`: text inputs (one with a value), a native `<select>`, a form whose submit is logged.
 - `nav-a.html`, `nav-b.html`: two pages linking to each other, for history and navigation.
-- `frames.html?other=ORIGIN`: a same-origin iframe and a cross-origin one (`frame-child.html` from ORIGIN, the
-  other port). The children post what happened to the parent, which logs it.
+- `frames.html?port=PORT`: a same-origin iframe and a cross-origin one (`frame-child.html` from
+  `127.0.0.1:PORT`, the other port). The children post what happened to the parent, which logs it.
 - `frame-child.html?name=same|cross`: a button, an input and a text, labelled with the name.
 - `shadow.html`: a web component with an open shadow root (button, labelled input), a nested shadow root and
   a slotted light-DOM button.
