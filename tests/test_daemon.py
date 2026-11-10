@@ -263,7 +263,10 @@ def test_second_daemon_on_a_taken_port_exits_with_one_line(daemon, caplog):
     with pytest.raises(SystemExit) as exc:  # SystemExit, not the OSError: no traceback in daemon.log
         main(daemon["token"], daemon["port"])
     assert exc.value.code == 1
-    assert [r.levelname for r in caplog.records] == ["ERROR"]
+    # Only the daemon's own records: older websockets log the fixture's readiness probe (a bare TCP connect) as
+    # an ERROR "opening handshake failed", which may arrive during this test.
+    ours = [r for r in caplog.records if r.name == "webpilot.daemon"]
+    assert [(r.levelname, r.exc_info) for r in ours] == [("ERROR", None)]
     assert "is another daemon running?" in caplog.text
 
 
