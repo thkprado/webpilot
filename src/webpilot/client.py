@@ -307,8 +307,10 @@ class Browser:
     def text(self, selector: str | None = None, max_chars: int = 50000) -> dict:
         return self.call("text", selector=selector, maxChars=max_chars)
 
-    def screenshot(self, path: str | Path | None = None, full: bool = False) -> Path:
-        result = self.call("screenshot", full=full or None)
+    def screenshot(self, path: str | Path | None = None, full: bool = False, target: str | None = None) -> Path:
+        """Saves a PNG of the viewport, the whole page (full=True) or one element (target, with 8 px around it,
+        scrolled into view) and returns its path (default: ~/.webpilot/screenshots/<time>.png)."""
+        result = self.call("screenshot", full=full or None, target=target)
         if path is None:
             shots = config.home() / "screenshots"
             shots.mkdir(exist_ok=True)
@@ -406,6 +408,15 @@ class Browser:
         files = _upload_files(paths)
         return self._act("upload", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
                          target=target, files=files, drop=drop or None)
+
+    def hover(self, target: str, trusted: bool = False, *, timeout: float | None = None, wait_text: str | None = None,
+              wait_selector: str | None = None, wait_timeout: float = 10, dialog: str | None = None,
+              prompt_text: str | None = None) -> dict:
+        """Moves the pointer onto target, for menus and tooltips that open on hover. Without trusted, the mouse
+        events are fired by script (menus opened by JavaScript); trusted=True moves the real pointer through the
+        debugger, which menus opened by CSS :hover need (they change no DOM, so read the page afterwards)."""
+        return self._act("hover", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         target=target, trusted=trusted or None)
 
     def scroll(self, to: str = "down", amount: int | None = None) -> dict:
         return self.call("scroll", to=to, amount=amount)

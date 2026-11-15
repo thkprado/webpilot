@@ -385,6 +385,14 @@ function ready(target: string) {
   return { ok: true, reresolved };
 }
 
+/** Whether the target exists and is visible, enabled or not (hover a disabled button for its tooltip, picture it). */
+function shown(target: string) {
+  const el = find(target);
+  if ("error" in el) return { ok: false, reason: el.error, fatal: !!el.fatal };
+  if (!isVisible(el)) return { ok: false, reason: `element is not visible: ${short(el)}` };
+  return { ok: true, reresolved };
+}
+
 const isFileInput = (e: unknown): e is HTMLInputElement => e instanceof HTMLInputElement && e.type === "file";
 
 /** A file input as the agent can tell it from others: id, name, label, accept, multiple. */
@@ -553,6 +561,49 @@ function fireClick(h: HTMLElement) {
   h.dispatchEvent(new PointerEvent("pointerup", opts));
   h.dispatchEvent(new MouseEvent("mouseup", opts));
   h.click();
+}
+
+/** The element and the elements around it, innermost first, across shadow roots. */
+function chainOf(el: Element): Element[] {
+  const out: Element[] = [];
+  for (let e: Element | null = el; e; e = parentOf(e)) out.push(e);
+  return out;
+}
+
+/**
+ * The events of the pointer moving onto the element's center, from the element the last hover left it on: out and
+ * leave there, over and enter here (enter on each element around it the pointer was not in yet, outermost first),
+ * then a move. Opens menus and tooltips run by script; CSS :hover needs the real pointer (hover --trusted).
+ */
+function hover(target: string) {
+  const el = find(target);
+  if ("error" in el) return el;
+  const { count } = arm();
+  const desc = short(el); // before the menu it opens adds its text
+  el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+  const r = el.getBoundingClientRect();
+  const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 1, pointerType: "mouse", isPrimary: true };
+  const prev = w.__wpHovered as Element | undefined;
+  const from = prev && prev !== el && prev.isConnected ? prev : null;
+  const fromChain = from ? chainOf(from) : [];
+  const toChain = chainOf(el);
+  const fire = (t: Element, Kind: typeof MouseEvent, type: string, bubbles: boolean, relatedTarget: Element | null) =>
+    t.dispatchEvent(new Kind(type, { ...at, bubbles, cancelable: bubbles, composed: bubbles, relatedTarget }));
+  if (from) {
+    fire(from, PointerEvent, "pointerout", true, el);
+    for (const t of fromChain.filter((t) => !toChain.includes(t))) fire(t, PointerEvent, "pointerleave", false, el);
+    fire(from, MouseEvent, "mouseout", true, el);
+    for (const t of fromChain.filter((t) => !toChain.includes(t))) fire(t, MouseEvent, "mouseleave", false, el);
+  }
+  const entered = toChain.filter((t) => !fromChain.includes(t)).reverse();
+  fire(el, PointerEvent, "pointerover", true, from);
+  for (const t of entered) fire(t, PointerEvent, "pointerenter", false, from);
+  fire(el, MouseEvent, "mouseover", true, from);
+  for (const t of entered) fire(t, MouseEvent, "mouseenter", false, from);
+  fire(el, PointerEvent, "pointermove", true, null);
+  fire(el, MouseEvent, "mousemove", true, null);
+  w.__wpHovered = el;
+  return { desc, count, reresolved };
 }
 
 /** Focuses the element (optionally selecting its content so typed text replaces it). */
@@ -991,5 +1042,5 @@ function requests(all: boolean, filter: string | null, since: number | null) {
 
 w.__wp = {
   frameInfo, frameOffset, snapshot, locate, click, focus, type, scroll, check, html, text, findCaptcha, arm, idle, ready,
-  submitForm, choose, watchOption, optionResult, visibility, readyUpload, upload, requests,
+  submitForm, choose, watchOption, optionResult, visibility, readyUpload, upload, requests, shown, hover,
 };

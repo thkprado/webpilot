@@ -22,6 +22,7 @@ webpilot type e7 "hello" --submit        # fill and press Enter
 webpilot type "select#country" "Brazil"  # choose a <select> option by text
 webpilot select e16 "billing"            # choose in a custom dropdown (role=combobox, react-select) or a <select>
 webpilot upload e9 cv.pdf [more files]  # file input, its label or the button in front of it; --drop for a drop zone
+webpilot hover e5 [--trusted] -s         # menus/tooltips on hover; --trusted for CSS :hover menus, then read the page
 webpilot press Escape                    # keys: Enter Tab Escape ArrowDown PageDown a Control+a ...
 webpilot scroll down | up | top | bottom | e40
 webpilot wait --text "Order confirmed" --timeout 20  # exit 1 if it does not appear in time
@@ -36,7 +37,7 @@ webpilot eval "(t) => (document.querySelector('#body').value = t).length" --arg 
 webpilot eval "document.querySelector('canvas').toDataURL()" --out chart.png   # to a file; data URLs are decoded
 webpilot fetch /api/items [-H "K: V"] [--timeout 120] [-o file] [--raw]   # HTTP with the tab's session; JSON out
 webpilot requests [--new] [-f TEXT] [--all]   # the page's fetch/XHR calls (--new: since the last action): its API
-webpilot screenshot [-o file.png] [--full]   # prints the path; open the image to look at it
+webpilot screenshot [e5] [-o file.png] [--full]   # prints the path; open it to look; e5: just that element
 webpilot tabs | tab new [URL] | tab use ID | tab close [ID] | tab info
 webpilot back | forward | reload
 webpilot captcha                         # click an "I'm not a robot" checkbox (always on request)

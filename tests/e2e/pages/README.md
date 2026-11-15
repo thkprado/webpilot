@@ -25,6 +25,8 @@ origins). One concern each, plain HTML and JS, no build step. Handlers record wh
 - `upload.html`: file inputs that show what they received (name, size, type, SHA-256, text): a visible one, a hidden
   one behind a label and one behind a button, a `multiple` one, a form with two (ambiguous), a drop zone, a `div`
   that takes no drops, one in a shadow root and one in an iframe (`?child=1`; `?noframe=1` leaves it out).
+- `hover.html`: a menu opened by `mouseenter` (closed by `mouseleave`), one opened by CSS `:hover`, a disabled button
+  with a tooltip, and a red 120 x 60 swatch below the first screen for element screenshots.
 - `requests.html`: a `fetch` and an XHR on load, an image (`pixel.svg`), a button that fetches once more and one that
   fetches the same URL three times; `?port=PORT` adds itself as a cross-origin iframe (`?child=1`) that makes a call
   of its own.

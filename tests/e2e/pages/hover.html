@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hover</title>
+<script>
+  window.__log = [];
+  const log = (e, name) => window.__log.push(name + (e.isTrusted ? ":trusted" : ""));
+</script>
+<style>
+  body { margin: 0; padding: 16px; font: 16px sans-serif; }
+  nav { display: flex; gap: 40px; }
+  nav > div { position: relative; padding: 8px; border: 1px solid #999; }
+  .sub { position: absolute; left: 0; top: 100%; background: #fff; border: 1px solid #999; padding: 8px; }
+  /* Opened by CSS only: no script runs, no DOM changes. */
+  #css-menu .sub { display: none; }
+  #css-menu:hover .sub { display: block; }
+  #swatch { width: 120px; height: 60px; background: rgb(255, 0, 0); margin-left: 200px; }
+</style>
+</head>
+<body>
+<h1 id="title">Hover page</h1>
+<nav>
+  <!-- Opened by script: mouseenter builds the submenu, mouseleave removes it. -->
+  <div id="js-menu">Products</div>
+  <div id="css-menu">Services
+    <div class="sub"><a href="#repairs" onclick="log(event, 'repairs')">Repairs</a></div>
+  </div>
+  <button id="off" disabled title="Fill the form first" onmouseenter="log(event, 'off')">Send</button>
+</nav>
+<div style="height: 1400px">Room above, so the swatch starts below the first screen.</div>
+<div id="swatch"></div>
+<div style="height: 600px"></div>
+<script>
+  const menu = document.getElementById("js-menu");
+  menu.addEventListener("mouseenter", (e) => {
+    log(e, "enter");
+    if (menu.querySelector(".sub")) return;
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    sub.innerHTML = '<a href="#laptops">Laptops</a>';
+    sub.querySelector("a").onclick = (ev) => log(ev, "laptops");
+    menu.append(sub);
+  });
+  menu.addEventListener("mouseleave", (e) => {
+    log(e, "leave");
+    menu.querySelector(".sub")?.remove();
+  });
+</script>
+</body>
+</html>

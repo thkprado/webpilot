@@ -236,6 +236,40 @@ def test_submit_with_no_form_on_the_page_is_an_error(b, site):
         b.submit()
 
 
+# ------------------------------------------------------------------ hover
+
+
+def test_hover_opens_a_menu_run_by_script_and_moving_away_closes_it(b, site):
+    b.goto(site.url("hover.html"))
+    res = b.hover("#js-menu")
+    assert res["hovered"] == 'div#js-menu "Products"' and res["changed"] is True and "hint" not in res
+    laptops = ref(b.snapshot()["text"], "link", "Laptops")
+    b.click(laptops)
+    assert page_log(b, 2) == ["enter", "laptops"]
+    b.hover("#title")  # the pointer leaves the menu, which closes
+    assert page_log(b, 3)[-1] == "leave"
+    assert "Laptops" not in b.snapshot()["text"]
+
+
+def test_a_menu_opened_by_css_hover_needs_the_real_pointer(b, site):
+    b.goto(site.url("hover.html"))
+    res = b.hover("#css-menu")
+    assert res["changed"] is False and "try hover --trusted" in res["hint"]
+    assert "Repairs" not in b.snapshot()["text"]
+    res = b.hover("#css-menu", trusted=True)
+    assert res["hovered"].startswith("div#css-menu") and "hint" not in res  # CSS changes no DOM: no hint
+    b.click(ref(b.snapshot()["text"], "link", "Repairs"), trusted=True)
+    assert page_log(b, 1) == ["repairs:trusted"]
+
+
+def test_hover_a_disabled_button_for_its_tooltip(b, site):
+    b.goto(site.url("hover.html"))
+    assert b.hover("#off")["hovered"] == 'button#off "Send"'  # disabled: click would wait for it, hover does not
+    b.hover("#title")
+    b.hover("#off", trusted=True)
+    assert page_log(b, 2) == ["off", "off:trusted"]
+
+
 # ------------------------------------------------------------------ what to do next
 
 

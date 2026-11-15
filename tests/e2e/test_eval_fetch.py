@@ -129,6 +129,40 @@ def test_screenshot_viewport_and_full_page(b, site, tmp_path):
     assert full_h > height * scale and abs(full_h - page_height * scale) <= 2 and full_w >= width * scale - 20
 
 
+# The colors of a PNG (a data URL) at points (x, y), read through a canvas in the page.
+PIXELS = """(url, points) => new Promise((done) => {
+  const img = new Image();
+  img.onload = () => {
+    const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    done(points.map(([x, y]) => Array.from(g.getImageData(x, y, 1, 1).data.slice(0, 3))));
+  };
+  img.src = url;
+})"""
+
+
+def test_screenshot_of_one_element_below_the_first_screen(b, site, tmp_path, monkeypatch, capsys):
+    b.goto(site.url("hover.html"))
+    scale = b.eval("devicePixelRatio")
+    shot = b.screenshot(tmp_path / "swatch.png", target="#swatch")  # 120 x 60, 1400 px down, 8 px around it
+    data = shot.read_bytes()
+    w, h = png_size(data)
+    assert (w, h) == (round(136 * scale), round(76 * scale))
+    url = "data:image/png;base64," + base64.b64encode(data).decode()
+    center, margin = b.eval(PIXELS, args=[url, [[w // 2, h // 2], [2, 2]]])
+    assert center == [255, 0, 0] and margin == [255, 255, 255]
+    with pytest.raises(WebPilotError, match="a target or --full, not both"):
+        b.screenshot(full=True, target="#swatch")
+    monkeypatch.setattr(sys, "argv", ["webpilot", "--temp", "screenshot", "#swatch", "-o", str(tmp_path / "cli.png")])
+    try:
+        cli.run()
+    except SystemExit as e:
+        assert not e.code
+    assert capsys.readouterr().out.strip() == str((tmp_path / "cli.png").resolve())
+    assert png_size((tmp_path / "cli.png").read_bytes()) == (w, h)
+
+
 # ------------------------------------------------------------------ requests
 
 

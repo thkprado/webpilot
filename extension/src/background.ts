@@ -767,18 +767,21 @@ async function locateAbs(tabId: number, loc: Loc) {
  * locateAbs, polled while another element covers the target, so overlays that go away (spinners, toasts) are
  * waited for. A real click there would land on the overlay, so one that stays is an error.
  */
-async function locateUncovered(tabId: number, loc: Loc, target: string, timeoutMs: number) {
+async function locateUncovered(tabId: number, loc: Loc, target: string, timeoutMs: number, verb = "click") {
   const end = Date.now() + timeoutMs;
   for (;;) {
     const p = await locateAbs(tabId, loc);
     if (!p.covered) return p;
     if (Date.now() >= end) {
       throw new Error(`${target} (${p.desc}) is covered by ${p.covered}: close that first (click its button), ` +
-        "or click without --trusted");
+        `or ${verb} without --trusted`);
     }
     await sleep(150);
   }
 }
+
+/** CSS pixels around an element in its screenshot. */
+const SHOT_MARGIN = 8;
 
 // ---------------------------------------------------------------- debugger (trusted input)
 
@@ -1140,6 +1143,19 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     return act(tab.id!, a, a.target, drop ? "dropped" : "uploaded",
       (loc) => frameCall(tab.id!, loc.frameId, "upload", loc.target, files, drop), undefined, drop ? "ready" : "readyUpload");
   },
+  hover: async (a) => {
+    const tab = await resolveTab(a);
+    const out = await act(tab.id!, a, a.target, "hovered", async (loc) => {
+      if (!a.trusted) return frameCall(tab.id!, loc.frameId, "hover", loc.target);
+      await assertVisible(tab.id!, loc.frameId);
+      const p = await locateUncovered(tab.id!, loc, String(a.target), (a.timeout ?? 5) * 1000, "hover");
+      const count = await armCount(tab.id!, loc.frameId);
+      await cdp(tab.id!, "Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x, y: p.y });
+      return { desc: p.desc, count };
+    }, undefined, "shown");
+    // A menu opened by CSS :hover changes no DOM, so after --trusted "no change" says nothing: read the page.
+    return a.trusted ? out : unchangedHint(out, "hover --trusted (menus opened by CSS :hover need the real pointer)");
+  },
   scroll: async (a) => {
     const tab = await resolveTab(a);
     const to = a.to ?? "down";
@@ -1242,6 +1258,25 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
   screenshot: async (a) => {
     const tab = await resolveTab(a);
     const params: any = { format: "png" };
+    if (a.target) {
+      if (a.full) throw new Error("screenshot takes a target or --full, not both");
+      const loc = await waitTarget(tab.id!, String(a.target), (a.timeout ?? 5) * 1000, "shown");
+      const p = await locateAbs(tab.id!, loc); // scrolls it to the middle of the viewport
+      // The clip is in document coordinates: add the page's scroll. A margin around the element, inside the page.
+      const m = await cdp(tab.id!, "Page.getLayoutMetrics");
+      const vp = m.cssVisualViewport || m.visualViewport;
+      const size = m.cssContentSize || m.contentSize;
+      const x0 = Math.max(0, vp.pageX + p.x - p.w / 2 - SHOT_MARGIN);
+      const y0 = Math.max(0, vp.pageY + p.y - p.h / 2 - SHOT_MARGIN);
+      const x1 = Math.min(size.width, vp.pageX + p.x + p.w / 2 + SHOT_MARGIN);
+      const y1 = Math.min(size.height, vp.pageY + p.y + p.h / 2 + SHOT_MARGIN, y0 + 16000);
+      if (x1 - x0 < 1 || y1 - y0 < 1) throw new Error(`${a.target} (${p.desc}) has no size to capture`);
+      params.clip = { x: x0, y: y0, width: x1 - x0, height: y1 - y0, scale: 1 };
+      // Only an element larger than the viewport needs the page laid out past it (which resizes it for a moment).
+      if (x1 - x0 > vp.clientWidth || y1 - y0 > vp.clientHeight) params.captureBeyondViewport = true;
+      const r = await cdp(tab.id!, "Page.captureScreenshot", params);
+      return { tabId: tab.id, format: "png", target: p.desc, data: r.data };
+    }
     if (a.full) {
       const m = await cdp(tab.id!, "Page.getLayoutMetrics");
       const size = m.cssContentSize || m.contentSize;

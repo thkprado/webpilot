@@ -276,11 +276,12 @@ def requests(
 
 @app.command()
 def screenshot(
+    target: Optional[str] = typer.Argument(None, help="Only this element (ref or selector), with 8 px around it."),
     output: Optional[str] = typer.Option(None, "--out", "-o"),
     full: bool = typer.Option(False, "--full", help="Whole page instead of the viewport."),
 ):
-    """Save a PNG screenshot and print its path."""
-    print(browser().screenshot(output, full))
+    """Save a PNG screenshot (the viewport, the whole page or one element) and print its path."""
+    print(browser().screenshot(output, full, target))
 
 
 def read_value(value: str) -> str:
@@ -519,6 +520,25 @@ def upload(
     b = browser()
     act_done(b, b.upload(target, *files, drop=drop, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
                          wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
+
+
+@app.command()
+def hover(
+    target: str = typer.Argument(..., help="Ref (e12), CSS selector, or text=Label"),
+    trusted: bool = typer.Option(False, "--trusted", help="Real pointer via the debugger API (menus opened by CSS "
+                                                          ":hover); read the page afterwards (-s)."),
+    timeout: float = TARGET_TIMEOUT,
+    wait_text: Optional[str] = WAIT_TEXT,
+    wait_for: Optional[str] = WAIT_FOR,
+    wait_timeout: float = WAIT_TIMEOUT,
+    snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
+):
+    """Move the pointer onto an element (menus and tooltips that open on hover), then wait for the page to settle."""
+    b = browser()
+    act_done(b, b.hover(target, trusted, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
+                        wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
 
 
 @app.command()

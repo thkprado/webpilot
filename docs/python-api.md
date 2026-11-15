@@ -21,10 +21,10 @@ with Browser() as b:                    # Browser("temp") for the temporary brow
 Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is the WebPilot folder, the parent of
 this `docs/` folder).
 
-- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, upload, press, submit, scroll,
+- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, upload, hover, press, submit, scroll,
   wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info,
   status`.
-- `click`/`type`/`select`/`upload`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
+- `click`/`type`/`select`/`upload`/`hover`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
   their result has `waited: {"found", "ms"}`. They also take `dialog="accept"` (default: dismiss) and
   `prompt_text=` for the `alert`/`confirm`/`prompt` the page opens meanwhile; those are listed in the result as
   `dialogs: [{"type", "message", "answer"}]` (plus `"frame"` inside an iframe). `goto`, `reload`, `back`,
@@ -33,6 +33,13 @@ this `docs/` folder).
   `input[type=file]`, its label, the button that opens it or an element around it (the input may be hidden); with
   `drop=True` the files are dropped on `target` (a drop zone). The result has `"uploaded"` (the input) or
   `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; the session log keeps only the sizes.
+- `hover(target, trusted=False)` moves the pointer onto `target` (it may be disabled), for menus and tooltips that
+  open on hover; the result has `"hovered"`. Without `trusted` the mouse events are fired by script, which opens
+  menus run by JavaScript; `changed: False` then comes with a hint to try `trusted=True`, the real pointer through
+  the debugger, which menus opened by CSS `:hover` need. Those change no DOM, so read the page after it.
+- `screenshot(path=None, full=False, target=None)` saves a PNG and returns its path: the viewport, the whole page
+  (`full=True`) or one element (`target`, scrolled into view, with 8 px around it), whose image stays legible where
+  a whole page gets scaled down.
 - `wait(selector=None, text=None, timeout=10, gone=False)` returns `{"found", "ms"}` and does not raise on a
   timeout: check `found`.
 - `eval(expression, timeout=60, args=None)` awaits promises for up to `timeout` seconds. Pass data as `args` (a list
