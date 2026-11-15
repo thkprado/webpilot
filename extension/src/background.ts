@@ -201,7 +201,7 @@ function waitForLoad(tabId: number, timeoutMs = 30000): Promise<boolean> {
 async function domIdle(tabId: number, quietMs: number, capMs: number) {
   const end = Date.now() + capMs;
   while (Date.now() < end) {
-    try { if ((await pageCall(tabId, "idle")).sinceMs >= quietMs) return; } catch { /* navigating */ }
+    try { if ((await pageCall(tabId, "idle")).sinceMs >= quietMs) return; } catch (e) { rethrowBlocked(e); /* navigating */ }
     await sleep(100);
   }
 }
@@ -266,7 +266,7 @@ async function settle(
       try {
         const s = await frameCall(tabId, frameId, "idle");
         if (s.sinceMs >= 500 && !s.busy) return { navigated };
-      } catch { /* navigating */ }
+      } catch (e) { rethrowBlocked(e); /* navigating */ }
     }
     await sleep(100);
   }
@@ -286,6 +286,7 @@ async function waitTarget(tabId: number, raw: string, timeoutMs: number): Promis
     try {
       r = await frameCall(tabId, loc.frameId, "ready", loc.target);
     } catch (e: any) {
+      rethrowBlocked(e);
       r = { ok: false, reason: String(e?.message ?? e) }; // page navigating or restricted
     }
     if (r.ok) return { ...loc, reresolved: !!r.reresolved };
@@ -294,7 +295,7 @@ async function waitTarget(tabId: number, raw: string, timeoutMs: number): Promis
       try {
         const hit = (await allFramesCall(tabId, "ready", loc.target)).find((f) => f.frameId !== 0 && f.value?.ok);
         if (hit) return { frameId: hit.frameId, target: loc.target, reresolved: false };
-      } catch { /* navigating */ }
+      } catch (e) { rethrowBlocked(e); /* navigating */ }
     }
     const reason = r.reason;
     if (Date.now() >= end) throw new Error(`${reason} (waited ${timeoutMs / 1000}s)`);
@@ -309,7 +310,7 @@ async function waitFor(tabId: number, selector: string | null, text: string | nu
     try {
       const present = (await allFramesCall(tabId, "check", selector, text)).some((f) => f.value === true);
       if (present !== gone) return { found: true, ms: Date.now() - start };
-    } catch { /* page navigating */ }
+    } catch (e) { rethrowBlocked(e); /* page navigating */ }
     await sleep(250);
   }
   return { found: false, ms: Date.now() - start };
@@ -321,7 +322,7 @@ async function waitNotBusy(tabId: number, timeoutMs: number) {
   while (Date.now() < end) {
     try {
       if (!(await allFramesCall(tabId, "idle")).some((f) => f.value?.busy)) return;
-    } catch { /* navigating */ }
+    } catch (e) { rethrowBlocked(e); /* navigating */ }
     await sleep(100);
   }
 }
@@ -339,11 +340,16 @@ async function act(
   tabId: number, a: Args, target: string | null, key: string, run: (loc: Loc) => Promise<ActResult>,
   after?: () => Promise<Record<string, unknown>>,
 ) {
+  if (a.dialog !== undefined && a.dialog !== "accept" && a.dialog !== "dismiss") {
+    throw new Error(`dialog must be accept or dismiss, not ${JSON.stringify(a.dialog)}`);
+  }
   const found = target ? await waitTarget(tabId, target, (a.timeout ?? 5) * 1000) : { frameId: 0, target: "", reresolved: false };
   const url = (await chrome.tabs.get(tabId)).url;
+  await armDialogs(tabId, a.dialog === "accept", a.promptText ?? null);
+  let armed = true;
   const net = watchNetwork(tabId);
   try {
-    const r = await run(found);
+    const r = await answering(tabId, [found.frameId], run(found));
     const marker = !!(a.waitText || a.waitSelector);
     const { navigated, busy } = await settle(tabId, net, found.frameId, marker ? 1500 : 5000);
     const late = after ? await after() : {};
@@ -354,7 +360,7 @@ async function act(
       const s = await frameCall(tabId, found.frameId, "idle");
       count = s.count;
       if (found.frameId !== 0) frameUrl = s.url;
-    } catch { /* restricted page */ }
+    } catch (e) { rethrowBlocked(e); /* restricted page */ }
     const out: any = {
       ...(r.desc ? { [key]: r.desc } : {}),
       ...r.extra,
@@ -370,21 +376,31 @@ async function act(
       // The marker can show before the rest of the step (AJAX players): let aria-busy regions finish.
       if (out.waited.found) await waitNotBusy(tabId, 3000);
     }
+    armed = false;
+    const dialogs = await takeDialogs(tabId);
+    if (dialogs.length) {
+      out.dialogs = dialogs;
+      if (dialogs.some((d) => d.type !== "alert" && (d.answer === false || d.answer === null))) out.hint = DISMISSED;
+    }
     return out;
+  } catch (e) {
+    if (e instanceof PageBlocked) armed = false; // nothing more runs in that page
+    throw e;
   } finally {
     net.stop();
+    if (armed) void takeDialogs(tabId).catch(() => {});
   }
 }
 
 /** Adds a `hint` to an action's result when the page showed no change (and no awaited marker appeared). */
 function unchangedHint(out: any, alternatives: string) {
-  if (out.changed || out.hint || out.waited?.found) return out;
+  if (out.changed || out.hint || out.waited?.found || out.dialogs) return out;
   return { ...out, hint: `the page showed no change; if it should have reacted, try ${alternatives}` };
 }
 
 /** DOM mutation count before an action that does not go through a page function. */
 async function armCount(tabId: number, frameId = 0): Promise<number> {
-  try { return (await frameCall(tabId, frameId, "arm")).count; } catch { return 0; }
+  try { return (await frameCall(tabId, frameId, "arm")).count; } catch (e) { rethrowBlocked(e); return 0; }
 }
 
 async function tabInfo(tabId: number) {
@@ -442,6 +458,7 @@ const RESTRICTED = "could not run script in this tab: it shows a page no extensi
 
 /** Chrome's errors for pages an extension cannot script, with what to do instead. */
 function explain(e: any): Error {
+  if (e instanceof PageBlocked) return e;
   const m = String(e?.message ?? e);
   if (/cannot access|cannot be scripted/i.test(m)) return new Error(`${RESTRICTED} (${m})`);
   if (/showing error page/i.test(m)) {
@@ -450,18 +467,61 @@ function explain(e: any): Error {
   return e instanceof Error ? e : new Error(m);
 }
 
+/** A page whose main thread no longer runs scripts: almost always a dialog the shim did not answer. */
+class PageBlocked extends Error {}
+
+const NOT_ANSWERING = "the page is not answering: a dialog it opened (alert, confirm) may be blocking it; " +
+  "`webpilot reload` or `goto` closes it, or ask the user to answer it in the browser";
+
+/** Lets PageBlocked through the catch blocks that retry while a page navigates. */
+function rethrowBlocked(e: unknown) {
+  if (e instanceof PageBlocked) throw e;
+}
+
+/** How long a page call may go unanswered before the page is checked (a snapshot of 60k elements takes 0.7 s). */
+const CHECK_AFTER_MS = 5000;
+
+/**
+ * Waits for p, a script run in the tab's frames. A JavaScript dialog blocks the page, and with it every script
+ * an extension runs there, without an error: when p has not settled after CHECK_AFTER_MS, a trivial script is
+ * run in the same frames, and if that does not return within 5 s either, fails with PageBlocked.
+ */
+async function answering<T>(tabId: number, frames: number[] | "all", p: Promise<T>): Promise<T> {
+  let done = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const probe = new Promise<never>((_, reject) => {
+    const check = async () => {
+      const target = frames === "all" ? { tabId, allFrames: true } : { tabId, frameIds: frames };
+      const alive = await Promise.race([
+        chrome.scripting.executeScript({ target, func: () => 1, injectImmediately: true }).then(() => true, () => true),
+        sleep(5000).then(() => false),
+      ]);
+      if (done) return;
+      if (alive) timer = setTimeout(check, CHECK_AFTER_MS);
+      else reject(new PageBlocked(NOT_ANSWERING));
+    };
+    timer = setTimeout(check, CHECK_AFTER_MS);
+  });
+  try {
+    return await Promise.race([p, probe]);
+  } finally {
+    done = true;
+    clearTimeout(timer);
+  }
+}
+
 /** Calls globalThis.__wp[name](...args) in one frame of the tab, injecting page.js first if needed. */
 async function frameCall<T = any>(tabId: number, frameId: number, name: string, ...args: any[]): Promise<T> {
   const target = { tabId, frameIds: [frameId] };
   const run = async () => {
-    const [res] = await chrome.scripting.executeScript({ target, func: callWp, args: [name, args] }).catch((e) => {
-      throw explain(e);
-    });
+    const [res] = await answering(tabId, [frameId], chrome.scripting.executeScript({ target, func: callWp, args: [name, args] }))
+      .catch((e) => { throw explain(e); });
     return res?.result as any;
   };
   let r = await run();
   if (r?.missing) {
-    await chrome.scripting.executeScript({ target, files: ["page.js"] }).catch((e) => { throw explain(e); });
+    await answering(tabId, [frameId], chrome.scripting.executeScript({ target, files: ["page.js"] }))
+      .catch((e) => { throw explain(e); });
     r = await run();
   }
   if (!r) throw new Error(RESTRICTED);
@@ -475,17 +535,149 @@ const pageCall = <T = any>(tabId: number, name: string, ...args: any[]) => frame
 
 /** Calls globalThis.__wp[name](...args) in every frame that allows scripts; frames that fail are left out. */
 async function allFramesCall(tabId: number, name: string, ...args: any[]): Promise<{ frameId: number; value: any }[]> {
-  const run = () => chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func: callWp, args: [name, args] });
+  const run = () => answering(tabId, "all",
+    chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func: callWp, args: [name, args] }));
   let res = await run();
   const missing = res.filter((r) => (r.result as any)?.missing).map((r) => r.frameId);
   if (missing.length) {
-    await chrome.scripting.executeScript({ target: { tabId, frameIds: missing }, files: ["page.js"] }).catch(() => {});
+    await answering(tabId, missing, chrome.scripting.executeScript({ target: { tabId, frameIds: missing }, files: ["page.js"] }))
+      .catch(rethrowBlocked);
     res = await run();
   }
   return res
     .filter((r) => r.result && !(r.result as any).missing && !(r.result as any).error)
     .map((r) => ({ frameId: r.frameId, value: (r.result as any).value }));
 }
+
+// ---------------------------------------------------------------- dialogs (alert, confirm, prompt)
+
+type Dialog = { type: string; message: string; answer: unknown; frame?: string };
+
+/** Main world: sets the policy of dialogs.js in this document; ms = how long it answers (0: no more). */
+const dialogPolicy = (accept: boolean, text: string | null, ms: number) => {
+  const s = (window as any)[Symbol.for("webpilot.dialogs")];
+  if (s) Object.assign(s, { accept, text, until: ms ? Date.now() + ms : 0 });
+};
+
+/** Main world: stops answering and returns the dialogs answered so far. */
+const dialogTake = () => {
+  const s = (window as any)[Symbol.for("webpilot.dialogs")];
+  if (!s) return [];
+  s.until = 0;
+  return s.queue.splice(0);
+};
+
+/**
+ * Makes every frame of the tab answer its dialogs (accepting or dismissing them) instead of blocking, for up
+ * to 2 minutes or until takeDialogs. Pages that cannot be scripted are left alone: the action fails there anyway.
+ */
+async function armDialogs(tabId: number, accept: boolean, text: string | null) {
+  const target = { tabId, allFrames: true };
+  try {
+    await answering(tabId, "all", chrome.scripting.executeScript({ target, files: ["dialogs.js"], world: "MAIN", injectImmediately: true }));
+    await answering(tabId, "all", chrome.scripting.executeScript({
+      target, func: dialogPolicy, args: [accept, text, 120000], world: "MAIN", injectImmediately: true,
+    }));
+  } catch (e) {
+    rethrowBlocked(e);
+  }
+}
+
+/** The dialogs the frames answered since armDialogs (or since the page loaded), and no more answering. */
+async function takeDialogs(tabId: number): Promise<Dialog[]> {
+  try {
+    const res = await answering(tabId, "all", chrome.scripting.executeScript({
+      target: { tabId, allFrames: true }, func: dialogTake, world: "MAIN", injectImmediately: true,
+    }));
+    return res.flatMap((r) => ((r.result as Dialog[]) ?? []).map((d) => (r.frameId ? { ...d, frame: `f${r.frameId}` } : d)));
+  } catch (e) {
+    rethrowBlocked(e);
+    return [];
+  }
+}
+
+/** Match patterns for the site of a URL (the host and its subdomains), for the load-time shim. */
+function siteMatches(url?: string): string[] {
+  let u: URL;
+  try { u = new URL(url ?? ""); } catch { return []; }
+  if (!/^https?:$/.test(u.protocol) || u.hostname.startsWith("[")) return [];
+  const host = bareHost(u.hostname);
+  const base = host.replace(/^www\./, "");
+  if (/^[\d.]+$/.test(host) || !base.includes(".")) return [`*://${host}/*`];
+  return [`*://${base}/*`, `*://*.${base}/*`];
+}
+
+let shimSeq = 0;
+// Left over by a service worker that stopped during a navigation.
+chrome.scripting.getRegisteredContentScripts()
+  .then((list) => {
+    const ids = list.map((s) => s.id).filter((id) => id.startsWith("wp-dialogs-"));
+    if (ids.length) return chrome.scripting.unregisterContentScripts({ ids });
+  })
+  .catch(() => {});
+
+/**
+ * Runs fn (a navigation) with dialogs.js registered at document_start for the target's site, so an alert in an
+ * inline script of the new page is answered before anything else runs. Only that site, only meanwhile.
+ */
+async function withLoadShim<T>(url: string | undefined, fn: () => Promise<T>): Promise<T> {
+  const matches = siteMatches(url);
+  const id = `wp-dialogs-${++shimSeq}-${Date.now()}`;
+  let registered = false;
+  if (matches.length) {
+    try {
+      await chrome.scripting.registerContentScripts([{
+        id, js: ["dialogs.js"], matches, allFrames: true, runAt: "document_start", world: "MAIN", persistAcrossSessions: false,
+      }]);
+      registered = true;
+    } catch { /* older browser: the action's own shim and the not-answering check remain */ }
+  }
+  try {
+    return await fn();
+  } finally {
+    if (registered) chrome.scripting.unregisterContentScripts({ ids: [id] }).catch(() => {});
+  }
+}
+
+/** Page.javascriptDialogOpening handlers of tabs whose navigation may meet a beforeunload prompt. */
+const dialogHandlers = new Map<number, (p: any) => void>();
+chrome.debugger.onEvent.addListener((src, method, params) => {
+  if (method === "Page.javascriptDialogOpening" && src.tabId) dialogHandlers.get(src.tabId)?.(params);
+});
+
+/**
+ * A page that had a user gesture (a --trusted click, or the user) may stop a navigation with a beforeunload
+ * prompt ("Leave site?"), which no page script can answer. For those pages only, the debugger watches the
+ * navigation: beforeunload is accepted (the agent asked to leave), other dialogs dismissed; all go to `out`.
+ * Returns the function that stops watching.
+ */
+async function acceptUnload(tabId: number, out: Dialog[]): Promise<() => Promise<void>> {
+  const check = chrome.scripting.executeScript({
+    target: { tabId, allFrames: true }, func: () => !!(navigator as any).userActivation?.hasBeenActive,
+  }).catch(() => []);
+  // A page blocked by a dialog does not answer; the navigation closes that dialog anyway.
+  const res = await Promise.race([check, sleep(1500).then(() => [])]);
+  if (!res.some((r) => r.result === true)) return async () => {};
+  dialogHandlers.set(tabId, (p) => {
+    const type = String(p.type);
+    const accept = type === "beforeunload" || type === "alert";
+    out.push({ type, message: String(p.message ?? "").slice(0, 300), answer: type === "beforeunload" ? true : type === "confirm" ? false : null });
+    cdp(tabId, "Page.handleJavaScriptDialog", { accept }).catch(() => {});
+  });
+  try {
+    await cdp(tabId, "Page.enable");
+  } catch {
+    dialogHandlers.delete(tabId);
+    return async () => {};
+  }
+  return async () => {
+    dialogHandlers.delete(tabId);
+    await cdp(tabId, "Page.disable").catch(() => {});
+  };
+}
+
+const DISMISSED = "the page asked for confirmation and it was dismissed; if the user agreed to this, repeat with " +
+  "--dialog accept";
 
 // ---------------------------------------------------------------- frames
 
@@ -657,7 +849,7 @@ async function assertVisible(tabId: number, frameId = 0) {
   const tab = await chrome.tabs.get(tabId);
   let hidden = (await chrome.windows.get(tab.windowId)).state === "minimized";
   if (!hidden && tab.active) {
-    try { hidden = (await frameCall(tabId, frameId, "visibility")) === "hidden"; } catch { /* restricted page */ }
+    try { hidden = (await frameCall(tabId, frameId, "visibility")) === "hidden"; } catch (e) { rethrowBlocked(e); /* restricted page */ }
   }
   if (hidden) {
     throw new Error("the browser window is minimized or covered, so real input would be lost; ask the user to bring " +
@@ -739,13 +931,27 @@ async function autoCaptcha(tabId: number) {
 
 // ---------------------------------------------------------------- commands
 
-async function navigate(tabId: number, action: () => Promise<unknown>) {
-  const loaded = waitForLoad(tabId);
-  await action();
-  const ok = await loaded;
-  if (ok) await domIdle(tabId, 300, 3000); // let client-side rendering finish before a snapshot
-  const captcha = await autoCaptcha(tabId);
-  return { ...(await tabInfo(tabId)), loaded: ok, ...(captcha ? { captcha } : {}) };
+/**
+ * Runs a navigation of the tab to url and waits for the new page. Dialogs it opens while loading are dismissed
+ * (see withLoadShim) and a beforeunload prompt of the page being left is accepted (see acceptUnload); both
+ * are reported in `dialogs`.
+ */
+async function navigate(tabId: number, url: string | undefined, action: () => Promise<unknown>) {
+  const dialogs: Dialog[] = [];
+  const release = await acceptUnload(tabId, dialogs);
+  try {
+    return await withLoadShim(url, async () => {
+      const loaded = waitForLoad(tabId);
+      await action();
+      const ok = await answering(tabId, [0], loaded);
+      if (ok) await domIdle(tabId, 300, 3000); // let client-side rendering finish before a snapshot
+      dialogs.push(...(await takeDialogs(tabId)));
+      const captcha = await autoCaptcha(tabId);
+      return { ...(await tabInfo(tabId)), loaded: ok, ...(dialogs.length ? { dialogs } : {}), ...(captcha ? { captcha } : {}) };
+    });
+  } finally {
+    await release();
+  }
 }
 
 /**
@@ -759,7 +965,7 @@ async function historyStep(tabId: number, step: -1 | 1) {
   const entry = h.entries[h.currentIndex + step];
   if (!entry) throw new Error(`no ${step < 0 ? "previous" : "next"} page in this tab's history`);
   checkBlocked(entry.url);
-  return navigate(tabId, () => cdp(tabId, "Page.navigateToHistoryEntry", { entryId: entry.id }));
+  return navigate(tabId, entry.url, () => cdp(tabId, "Page.navigateToHistoryEntry", { entryId: entry.id }));
 }
 
 const commands: Record<string, (a: Args) => Promise<any>> = {
@@ -787,7 +993,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const tab = await newTab();
     if (!a.url) return tabInfo(tab.id!);
     checkBlocked(a.url);
-    return navigate(tab.id!, () => chrome.tabs.update(tab.id!, { url: a.url }));
+    return navigate(tab.id!, a.url, () => chrome.tabs.update(tab.id!, { url: a.url }));
   },
   "tab.use": async (a) => {
     const tab = await chrome.tabs.get(Number(a.tabId));
@@ -800,9 +1006,15 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const st = await getState();
     const id = a.tabId ?? st.currentTabId;
     if (id === undefined) throw new Error("no tab to close");
-    await chrome.tabs.remove(Number(id));
+    const dialogs: Dialog[] = [];
+    const release = await acceptUnload(Number(id), dialogs); // or a beforeunload prompt keeps the tab open
+    try {
+      await chrome.tabs.remove(Number(id));
+    } finally {
+      await release();
+    }
     if (Number(id) === st.currentTabId) await chrome.storage.session.remove("currentTabId");
-    return { closed: Number(id) };
+    return { closed: Number(id), ...(dialogs.length ? { dialogs } : {}) };
   },
   "tab.info": async (a) => tabInfo((await resolveTab(a)).id!),
 
@@ -810,7 +1022,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     if (!a.url) throw new Error("url is required");
     checkBlocked(a.url);
     const tab = a.newTab ? await newTab() : await resolveTab(a);
-    return navigate(tab.id!, () => chrome.tabs.update(tab.id!, { url: a.url }));
+    return navigate(tab.id!, a.url, () => chrome.tabs.update(tab.id!, { url: a.url }));
   },
   back: async (a) => {
     const tab = await resolveTab(a);
@@ -822,7 +1034,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
   },
   reload: async (a) => {
     const tab = await resolveTab(a);
-    return navigate(tab.id!, () => chrome.tabs.reload(tab.id!));
+    return navigate(tab.id!, tab.url, () => chrome.tabs.reload(tab.id!));
   },
 
   snapshot: async (a) => {
@@ -926,13 +1138,13 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     let r;
     if (Array.isArray(a.args)) {
       // The expression is a function; the arguments travel as JSON values, never as code.
-      const global = await cdp(tab.id!, "Runtime.evaluate", { expression: "globalThis" });
+      const global = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.evaluate", { expression: "globalThis" }));
       try {
-        r = await cdp(tab.id!, "Runtime.callFunctionOn", {
+        r = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.callFunctionOn", {
           functionDeclaration: source, objectId: global.result.objectId,
           arguments: a.args.map((value: unknown) => ({ value })),
           returnByValue: true, awaitPromise: true, userGesture: true,
-        });
+        }));
       } catch (e: any) {
         if (String(e?.message).includes("does not evaluate to a function")) {
           throw new Error("with arguments, the expression must be a function, such as (text, n) => ...");
@@ -940,9 +1152,9 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
         throw e;
       }
     } else {
-      r = await cdp(tab.id!, "Runtime.evaluate", {
+      r = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.evaluate", {
         expression: source, returnByValue: true, awaitPromise: true, userGesture: true,
-      });
+      }));
     }
     if (r.exceptionDetails) throw new Error(evalError(source, r.exceptionDetails, Array.isArray(a.args)));
     if (!Array.isArray(a.args) && r.result?.type === "function") {
@@ -964,10 +1176,10 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     let url: string;
     try { url = new URL(String(a.url), tab.url).href; } catch { throw new Error(`bad URL for this tab: ${a.url}`); }
     checkBlocked(url);
-    const [res] = await chrome.scripting.executeScript({
+    const [res] = await answering(tab.id!, [0], chrome.scripting.executeScript({
       target: { tabId: tab.id! }, func: pageFetch, world: "MAIN", // the isolated world's requests never left the tab
       args: [url, method, a.headers ?? {}, a.body ?? null, a.timeoutMs ?? 120000],
-    }).catch((e) => { throw explain(e); });
+    })).catch((e) => { throw explain(e); });
     const r = res?.result as any;
     if (!r) throw new Error(RESTRICTED);
     if (r.error) throw new Error(r.error);

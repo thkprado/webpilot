@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dialogs</title>
+<script>
+  window.__log = [];
+  const params = new URLSearchParams(location.search);
+  const child = params.has("child");
+  // ?onload=1: an alert while the page loads, before anything else on it.
+  if (params.has("onload")) window.__log.push("onload:" + alert("Welcome to the dialogs page"));
+  // ?beforeunload=1: leaving asks for confirmation (once the page had a user gesture).
+  if (params.has("beforeunload")) {
+    addEventListener("beforeunload", (e) => { e.preventDefault(); e.returnValue = ""; });
+  }
+  function show(text) {
+    window.__log.push(text);
+    document.getElementById("out").textContent = text;
+    if (child) parent.postMessage({ dialogs: text }, "*");
+  }
+  addEventListener("message", (e) => { if (e.data?.dialogs) window.__log.push("child " + e.data.dialogs); });
+</script>
+</head>
+<body>
+<h1 id="title">Dialogs</h1>
+<button id="alert" onclick="alert('Saved'); show('alert done')">Alert</button>
+<button id="confirm" onclick="show(confirm('Delete the item?') ? 'deleted' : 'kept')">Delete</button>
+<button id="prompt" onclick="const n = prompt('Your name?', 'Anonymous'); show(n === null ? 'no name' : 'name: ' + n)">Name</button>
+<p id="out"></p>
+<script>
+  if (child) {
+    document.getElementById("title").textContent = "Child dialogs";
+    for (const b of document.querySelectorAll("button")) b.textContent = "Child " + b.textContent.toLowerCase();
+  } else if (!params.has("noframe")) {
+    const f = document.createElement("iframe");
+    f.src = "dialogs.html?child=1";
+    document.body.append(f);
+  }
+</script>
+</body>
+</html>

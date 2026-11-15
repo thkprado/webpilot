@@ -16,6 +16,7 @@ webpilot snapshot -S "main"              # only one CSS subtree
 webpilot click e12                       # click by ref | CSS selector | text=Label | text=Next|Próximo|›
 webpilot click e12 -s                    # ...then print a snapshot of the resulting page
 webpilot click e12 --wait-text "Step 2"  # ...then wait for the next state (--wait-for SELECTOR also works)
+webpilot click e12 --dialog accept       # OK on the confirm()/prompt() it opens (default: dismiss); --prompt-text T
 webpilot submit [e7] -s                  # submit the form around e7 (or the focused/first form)
 webpilot type e7 "hello" --submit        # fill and press Enter
 webpilot type "select#country" "Brazil"  # choose a <select> option by text
@@ -95,6 +96,9 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 - `fetch` calls a site's API with the user's session, from the current tab's page: relative URLs resolve against
   it, another origin works only with CORS; it exits 1 on HTTP errors. Methods other than GET/HEAD need
   `--allow-write`, which you may pass only after the user confirmed that request.
+- Dialogs (`alert`, `confirm`, `prompt`) opened during an action are answered at once and listed in the result's
+  `dialogs`. A `confirm` or `prompt` is dismissed by default: that is the site asking the user to confirm (delete,
+  send, pay, leave). Repeat with `--dialog accept` only when the rules above allow the action and the user agreed.
 - Prefer `click`/`type` without `--trusted`. Use `--trusted` (real input through the debugger) only when the page
   ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s, and fails when another
   element covers the target (a banner): close that first.

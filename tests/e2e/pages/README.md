@@ -19,6 +19,9 @@ origins). One concern each, plain HTML and JS, no build step. Handlers record wh
 - `long.html`: a page about 4000 px tall with a button in the middle, for scrolling and full screenshots.
 - `covered.html`: a button under a fixed cookie banner (its "Accept" removes it), a custom checkbox (a
   transparent input under a drawn box) and `spin(ms)`, an overlay that goes away after `ms`, for `click --trusted`.
+- `dialogs.html`: buttons calling `alert`, `confirm` and `prompt` that log the outcome, the same page as an iframe
+  (`?child=1`, posting to the parent; `?noframe=1` leaves it out), `?onload=1` (an `alert` in an inline script while
+  loading) and `?beforeunload=1` (asks before leaving, once the page had a user gesture).
 
 The server also answers `/api/echo` (the request as JSON), `/api/slow?ms=`, `/set-cookie?name=&value=` and
 `/redirect?to=`, and serves `tests/pages/combobox/` under `/combobox/` (`test_combobox.py`, skipped until

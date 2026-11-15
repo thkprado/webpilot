@@ -378,6 +378,9 @@ WAIT_FOR = typer.Option(None, "--wait-for", help="Afterwards, wait until this CS
 WAIT_TIMEOUT = typer.Option(10, "--wait-timeout", help="Seconds for --wait-text/--wait-for.")
 TARGET_TIMEOUT = typer.Option(5, "--timeout", help="Seconds to wait for the target to appear and be enabled.")
 SNAP = typer.Option(False, "--snapshot", "-s", help="Print a snapshot afterwards.")
+DIALOG = typer.Option(None, "--dialog", help="Answer to alert/confirm/prompt the page opens: dismiss (default) or "
+                      "accept (only for what the user agreed to).")
+PROMPT_TEXT = typer.Option(None, "--prompt-text", help="What an accepted prompt() gets (default: its own default).")
 
 
 def act_done(b: Browser, res: dict, snapshot: bool, max_chars: int = 15000) -> None:
@@ -399,11 +402,13 @@ def click(
     wait_for: Optional[str] = WAIT_FOR,
     wait_timeout: float = WAIT_TIMEOUT,
     snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Click an element, then wait for the page to settle (navigation or AJAX)."""
     b = browser()
     act_done(b, b.click(target, trusted, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
-                        wait_timeout=wait_timeout), snapshot)
+                        wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
 
 
 @app.command("type")
@@ -418,11 +423,14 @@ def type_(
     wait_for: Optional[str] = WAIT_FOR,
     wait_timeout: float = WAIT_TIMEOUT,
     snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Fill an input/textarea/contenteditable, or pick a <select> option by text."""
     b = browser()
     act_done(b, b.type(target, value, clear=not append, submit=submit, trusted=trusted, timeout=timeout,
-                       wait_text=wait_text, wait_selector=wait_for, wait_timeout=wait_timeout), snapshot)
+                       wait_text=wait_text, wait_selector=wait_for, wait_timeout=wait_timeout,
+                       dialog=dialog, prompt_text=prompt_text), snapshot)
 
 
 @app.command()
@@ -434,11 +442,13 @@ def select(
     wait_for: Optional[str] = WAIT_FOR,
     wait_timeout: float = WAIT_TIMEOUT,
     snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Choose an option in a custom dropdown (react-select and the like) or a <select>, in one command."""
     b = browser()
     act_done(b, b.select(target, text, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
-                         wait_timeout=wait_timeout), snapshot)
+                         wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
 
 
 @app.command()
@@ -448,10 +458,13 @@ def press(
     wait_for: Optional[str] = WAIT_FOR,
     wait_timeout: float = WAIT_TIMEOUT,
     snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Press a key in the current tab."""
     b = browser()
-    act_done(b, b.press(key, wait_text=wait_text, wait_selector=wait_for, wait_timeout=wait_timeout), snapshot)
+    act_done(b, b.press(key, wait_text=wait_text, wait_selector=wait_for, wait_timeout=wait_timeout, dialog=dialog,
+                        prompt_text=prompt_text), snapshot)
 
 
 @app.command()
@@ -462,11 +475,13 @@ def submit(
     wait_for: Optional[str] = WAIT_FOR,
     wait_timeout: float = WAIT_TIMEOUT,
     snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Submit a form like its submit button would (runs the page's handlers), then wait for the page to settle."""
     b = browser()
     act_done(b, b.submit(target, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
-                         wait_timeout=wait_timeout), snapshot)
+                         wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
 
 
 @app.command()

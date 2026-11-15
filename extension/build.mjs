@@ -13,6 +13,8 @@ const builds = [
   { ...common, entryPoints: ["src/background.ts"], outfile: "dist/background.js", format: "esm" },
   // Injected into pages on demand; exposes globalThis.__wp.
   { ...common, entryPoints: ["src/page.ts"], outfile: "dist/page.js", format: "iife" },
+  // Injected into pages (main world) during actions and navigations: answers alert/confirm/prompt.
+  { ...common, entryPoints: ["src/dialogs.ts"], outfile: "dist/dialogs.js", format: "iife" },
   // Toolbar popup: connection state and profile name.
   { ...common, entryPoints: ["src/popup.ts"], outfile: "dist/popup.js", format: "iife" },
 ];

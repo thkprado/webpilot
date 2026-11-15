@@ -219,6 +219,8 @@ class Browser:
                         entry["wait_missed"] = True  # `wait`, or an action's --wait-text/--wait-for, timed out
                     if result.get("busy"):  # the page never went quiet after an action
                         entry["busy"] = result["busy"]
+                    if result.get("dialogs"):  # the types only: messages may carry personal data
+                        entry["dialogs"] = [d.get("type") for d in result["dialogs"]]
                     if result.get("frameUrl"):  # the action ran inside an iframe (domain only, like frames)
                         entry["frame_domain"] = session_log.domain(result["frameUrl"])
                     if result.get("frames"):  # domains only: frame URLs may carry session ids
@@ -318,41 +320,51 @@ class Browser:
 
     # Actions wait up to `timeout` seconds for their target, then for the page to settle (load + quiet DOM).
     # wait_text / wait_selector additionally wait (up to wait_timeout) for the next state; see result["waited"].
+    # Dialogs the page opens meanwhile (alert, confirm, prompt) are answered at once and listed in
+    # result["dialogs"]: dismissed by default; dialog="accept" accepts them (only for what the user agreed to),
+    # and prompt_text is what an accepted prompt() gets (default: the prompt's own default value).
 
     def _act(self, cmd: str, timeout: float | None, wait_text: str | None, wait_selector: str | None,
-             wait_timeout: float, **args) -> dict:
+             wait_timeout: float, dialog: str | None, prompt_text: str | None, **args) -> dict:
+        if dialog not in (None, "accept", "dismiss"):
+            raise WebPilotError(f"dialog must be 'accept' or 'dismiss', not {dialog!r}")
         waiting = wait_text is not None or wait_selector is not None
         return self.call(cmd, _timeout=60 + (timeout or 5) + (wait_timeout if waiting else 0), timeout=timeout,
                          waitText=wait_text, waitSelector=wait_selector,
-                         waitTimeout=wait_timeout if waiting else None, **args)
+                         waitTimeout=wait_timeout if waiting else None, dialog=dialog, promptText=prompt_text, **args)
 
     def click(self, target: str, trusted: bool = False, *, timeout: float | None = None, wait_text: str | None = None,
-              wait_selector: str | None = None, wait_timeout: float = 10) -> dict:
+              wait_selector: str | None = None, wait_timeout: float = 10, dialog: str | None = None,
+              prompt_text: str | None = None) -> dict:
         """target: snapshot ref (e12), CSS selector, or text=Label (text=Next|Próximo tries each label)."""
-        return self._act("click", timeout, wait_text, wait_selector, wait_timeout, target=target, trusted=trusted or None)
+        return self._act("click", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         target=target, trusted=trusted or None)
 
     def type(self, target: str, text: str, *, clear: bool = True, submit: bool = False, trusted: bool = False,
              timeout: float | None = None, wait_text: str | None = None, wait_selector: str | None = None,
-             wait_timeout: float = 10) -> dict:
-        return self._act("type", timeout, wait_text, wait_selector, wait_timeout, target=target, text=text,
-                         clear=clear, submit=submit or None, trusted=trusted or None)
+             wait_timeout: float = 10, dialog: str | None = None, prompt_text: str | None = None) -> dict:
+        return self._act("type", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         target=target, text=text, clear=clear, submit=submit or None, trusted=trusted or None)
 
     def select(self, target: str, text: str, *, timeout: float | None = None, wait_text: str | None = None,
-               wait_selector: str | None = None, wait_timeout: float = 10) -> dict:
+               wait_selector: str | None = None, wait_timeout: float = 10, dialog: str | None = None,
+               prompt_text: str | None = None) -> dict:
         """Chooses the option matching `text` in a custom dropdown (role=combobox, such as react-select) or a
         <select>, in one command. target: the combobox or an element around it. The result has "option"
         (its text) and "value" (what the field shows); not choosing raises WebPilotError."""
-        return self._act("select", timeout, wait_text, wait_selector, wait_timeout, target=target, text=text)
+        return self._act("select", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         target=target, text=text)
 
     def press(self, key: str, *, wait_text: str | None = None, wait_selector: str | None = None,
-              wait_timeout: float = 10) -> dict:
+              wait_timeout: float = 10, dialog: str | None = None, prompt_text: str | None = None) -> dict:
         """Key name or combo: Enter, Tab, Escape, ArrowDown, a, Control+a..."""
-        return self._act("press", None, wait_text, wait_selector, wait_timeout, key=key)
+        return self._act("press", None, wait_text, wait_selector, wait_timeout, dialog, prompt_text, key=key)
 
     def submit(self, target: str | None = None, *, timeout: float | None = None, wait_text: str | None = None,
-               wait_selector: str | None = None, wait_timeout: float = 10) -> dict:
+               wait_selector: str | None = None, wait_timeout: float = 10, dialog: str | None = None,
+               prompt_text: str | None = None) -> dict:
         """Submits the form containing target (or the focused / first visible form), running the page's handlers."""
-        return self._act("submit", timeout, wait_text, wait_selector, wait_timeout, target=target)
+        return self._act("submit", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text, target=target)
 
     def scroll(self, to: str = "down", amount: int | None = None) -> dict:
         return self.call("scroll", to=to, amount=amount)

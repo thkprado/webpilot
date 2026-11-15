@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from .config import home
 
-SECRET_ARGS = {"text", "body"}  # typed text may be a password, a request body anything: only the length is logged
+SECRET_ARGS = {"text", "body", "promptText"}  # typed text may be a password, a body anything: only the length is logged
 
 
 def session_name() -> str:
