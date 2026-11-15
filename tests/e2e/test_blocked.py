@@ -1,15 +1,10 @@
 """blocked_domains, in a browser of its own: another config dir, daemon and temporary browser, with
 `blocked_domains: ["localhost"]`. Pages are served on 127.0.0.1, so only `localhost` URLs are blocked."""
 
-import json
-import os
-import time
-
 import pytest
-from helpers import free_port, running_daemon
+from helpers import own_browser
 
-from webpilot import config, temp_browser
-from webpilot.client import Browser, WebPilotError
+from webpilot.client import WebPilotError
 
 pytestmark = [pytest.mark.e2e, pytest.mark.xdist_group("blocked")]  # its browser starts once, on one worker
 
@@ -19,24 +14,8 @@ BLOCKED = "domain blocked by WebPilot config: localhost"
 @pytest.fixture(scope="module")
 def blocked(e2e_env, tmp_path_factory):
     """A Browser on a temporary browser whose config blocks localhost."""
-    home = tmp_path_factory.mktemp("webpilot-blocked")
-    (home / "config.json").write_text(json.dumps({"blocked_domains": ["localhost"]}), "utf-8")
-    port = free_port()
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("WEBPILOT_DIR", str(home))
-        mp.setenv("WEBPILOT_PORT", str(port))
-        token = config.load()["token"]
-        with running_daemon(token, port):
-            try:
-                temp_browser.start(headless=os.environ.get("WEBPILOT_E2E_HEADED") != "1")
-                with Browser("temp", autostart=False) as b:
-                    deadline = time.monotonic() + 60
-                    while "temp" not in b.status()["extensions"]:
-                        assert time.monotonic() < deadline, f"blocked browser did not connect; see {home}"
-                        time.sleep(0.2)
-                    yield b
-            finally:
-                temp_browser.stop()
+    with own_browser(tmp_path_factory.mktemp("webpilot-blocked"), {"blocked_domains": ["localhost"]}) as b:
+        yield b
 
 
 def localhost(site, path: str) -> str:
@@ -50,6 +29,8 @@ def test_goto_a_blocked_domain_is_refused(blocked, site):
             blocked.goto(url)
     with pytest.raises(WebPilotError, match=BLOCKED):
         blocked.new_tab(localhost(site, "basic.html"))
+    with pytest.raises(WebPilotError, match=BLOCKED):  # judged by the page it shows
+        blocked.goto("view-source:" + localhost(site, "basic.html"))
     assert blocked.goto(site.url("basic.html"))["title"] == "Basic"  # other hosts are fine
 
 
@@ -64,7 +45,10 @@ def test_fetch_to_a_blocked_domain_is_refused(blocked, site):
 
 
 def test_a_redirect_to_a_blocked_domain_locks_the_tab(blocked, site):
-    blocked.goto(site.url(f"redirect?to={localhost(site, 'nav-b.html')}"))  # lands on localhost
+    # The goto itself fails once the tab lands there, without reporting the page's title.
+    with pytest.raises(WebPilotError, match=f"the tab went to a page off limits \({BLOCKED}\)") as e:
+        blocked.goto(site.url(f"redirect?to={localhost(site, 'nav-b.html')}"))
+    assert "Nav B" not in str(e.value)
     for read in (blocked.snapshot, blocked.info, lambda: blocked.eval("1")):
         with pytest.raises(WebPilotError, match=BLOCKED):
             read()

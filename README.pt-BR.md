@@ -158,13 +158,15 @@ Ele relata domínios lidos sem parser, fluxos interativos repetidos (snapshots t
 
 | Item | Local |
 |---|---|
-| Config/token | `~/.webpilot/config.json` (`port`, `auto_captcha` (padrão `false`), `blocked_domains`, `profile`); rode `webpilot setup` de novo depois de editar |
+| Config/token | `~/.webpilot/config.json` (`port`, `auto_captcha` (padrão `false`), `blocked_domains`, `allowed_domains`, `profile`); rode `webpilot setup` de novo depois de editar |
 | Log do daemon | `~/.webpilot/daemon.log` |
 | Screenshots | `~/.webpilot/screenshots/` |
 | Navegador temporário | Chromium do Playwright; perfil em `%TEMP%\webpilot-temp-*`, apagado por `webpilot temp stop` (ou `webpilot stop`, que também para o daemon); `webpilot temp start --headless` para modo headless. Ele inicia com a detecção de oclusão do Chromium desligada, então uma janela coberta por outras ainda recebe entrada real; uma minimizada não |
 
 - `auto_captcha: true` faz o `goto` clicar sozinho nas caixas "I'm not a robot" (resultado no campo `captcha`); desligado por padrão. Desafios de imagem nunca são resolvidos: o agente pede a você.
 - `blocked_domains` (por exemplo `["mybank.example.com"]`) impede que o agente navegue para esses domínios e seus subdomínios, ou opere neles, no navegador real. Maiúsculas, um `*.` no início e um ponto no final não fazem diferença.
+- `allowed_domains` (por exemplo `["shop.example.com", "docs.example.org"]`), quando não está vazia, mantém o agente nesses domínios e seus subdomínios: qualquer outro é recusado como um bloqueado, assim como URLs `file:` e `data:` (`about:blank` pode). `blocked_domains` prevalece sobre ela. O `search` precisa do domínio do buscador na lista (`www.google.com`, ou `html.duckduckgo.com` com `--engine ddg`). Deixe-a vazia (o padrão) para permitir todos os sites.
+- As duas listas são verificadas antes de `goto`, `tab new`, `tab use`, `back`, `forward` e `fetch` (e depois dos redirecionamentos do `fetch`), na aba de cada comando, e depois de cada navegação ou ação: um clique ou redirecionamento que cai fora delas falha sem mostrar a página, e os comandos seguintes nessa aba também falham (`tab new URL` continua em outra aba). O conteúdo de iframes de outros domínios dentro de uma página permitida não é verificado.
 - Variáveis de ambiente: `WEBPILOT_MODE=temp`, `WEBPILOT_SESSION=nome`, `WEBPILOT_PROFILE=nome`, `WEBPILOT_HEADLESS=1`, `WEBPILOT_PORT`, `WEBPILOT_DIR`, `WEBPILOT_PARSERS_DIR`.
 
 ### Solução de problemas
@@ -196,7 +198,8 @@ agent ──shell──> webpilot CLI / lib Python ──WebSocket──> daemon
 
 O WebPilot dá a um programa (e à IA por trás dele) o controle de um navegador, então trate-o como um acesso remoto à sua máquina:
 
-- No modo **real**, o agente age com as suas sessões logadas: e-mail, banco, ferramentas de trabalho. Use `blocked_domains` para os sites que ele nunca deve tocar, e prefira `--temp` (perfil descartável) quando você não precisar das suas contas.
+- No modo **real**, o agente age com as suas sessões logadas: e-mail, banco, ferramentas de trabalho. Use `blocked_domains` para os sites que ele nunca deve tocar, ou `allowed_domains` para mantê-lo nos poucos de que ele precisa, e prefira `--temp` (perfil descartável) quando você não precisar das suas contas.
+- As duas listas de domínios protegem contra enganos e contra páginas que levam o agente para outro lugar; não são uma sandbox. Um agente com acesso ao shell pode ler e editar `~/.webpilot/config.json`, ou chegar a um site sem o navegador.
 - A extensão pede permissões amplas (`<all_urls>`, `debugger`, `scripting`, `webRequest`, `tabs`). Carregue-a só a partir de uma compilação feita por você mesmo a partir deste código-fonte, em um perfil de navegador que você controla.
 - O daemon local escuta apenas em `127.0.0.1` e exige o token de `~/.webpilot/config.json`. Mantenha esse arquivo privado; quem puder lê-lo consegue controlar o seu navegador.
 - Os logs de sessão em `~/.webpilot/sessions/` registram URLs e comandos (o texto digitado só é registrado pelo tamanho). Os fixtures de parser salvos podem conter conteúdo de páginas; nunca faça commit de páginas de um navegador logado.

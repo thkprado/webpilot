@@ -90,6 +90,8 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 - **Real browser = the user's real accounts.** Do not buy anything, send messages, delete data, change settings or
   accept terms without explicit confirmation from the user.
 - Operate the user's other tabs (`tab use`) only when asked.
+- A domain refused by `blocked_domains` or `allowed_domains` is the user's choice: ask them; never edit
+  `~/.webpilot/config.json` or reach the site another way.
 - **Browser profiles are separate accounts**, possibly of different people. If a command fails with "several
   browser profiles are connected", ask the user which one to use (`webpilot profile list`); never pick one
   yourself. Then pass `-p NAME` on every command (`Browser(profile=NAME)`) and do not switch profiles unasked.

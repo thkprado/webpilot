@@ -26,7 +26,9 @@ holds your logged-in sessions, so the tool is powerful by design.
 - Web pages and other websites talking to the daemon: it listens on `127.0.0.1` only, requires a random
   token (`~/.webpilot/config.json`) in the first message, and rejects connections from web pages
   (checks the `Origin`).
-- Agent access to sites you want off limits: `blocked_domains` in the config.
+- Agent access to sites you want off limits: `blocked_domains` in the config, or `allowed_domains` to keep
+  it on a few sites. Both guard against mistakes and pages steering the agent; they are not a sandbox (an
+  agent with a shell can edit the config).
 - Dangerous writes by accident: `fetch` refuses methods other than GET/HEAD unless `--allow-write` is given.
 
 **What it does not defend against**
@@ -35,7 +37,7 @@ holds your logged-in sessions, so the tool is powerful by design.
   (it contains the token), or run as you, can drive your browser.
 - An agent that you instructed (or that was tricked by prompt injection from a web page) to do harmful
   things within the permissions you gave it. Review what an agent does in your real browser, and use
-  `--temp` or `blocked_domains` when in doubt.
+  `--temp`, `blocked_domains` or `allowed_domains` when in doubt.
 - Other software on the machine with access to your browser profile.
 
 ## Extension permissions
@@ -49,7 +51,7 @@ unpacked from a build you made from this source. Do not install builds from unkn
 - Bypassing the token or origin check of the daemon.
 - Any way for a web page to control the extension or the daemon.
 - Leaking the token or session data outside the machine.
-- Bypassing `blocked_domains` or the `fetch` write protection.
+- Bypassing `blocked_domains`, `allowed_domains` or the `fetch` write protection through the extension.
 
 Out of scope: an agent misbehaving inside the permissions you granted, and issues that need prior full
 control of your user account.

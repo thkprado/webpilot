@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 if TYPE_CHECKING:
     from .client import Browser
@@ -27,7 +27,14 @@ def search(browser: Browser, query: str, n: int = 10, engine: str = "google", la
 
     if engine not in ENGINES:
         raise WebPilotError(f"unknown engine {engine!r}; choose from {', '.join(ENGINES)}")
-    nav = browser.goto(ENGINES[engine](query, n, lang), new_tab=new_tab)
+    url = ENGINES[engine](query, n, lang)
+    try:
+        nav = browser.goto(url, new_tab=new_tab)
+    except WebPilotError as e:
+        if "allowed_domains" not in str(e):
+            raise
+        host = urlsplit(url).hostname
+        raise WebPilotError(f"{e} (search --engine {engine} opens {host}: it must be in allowed_domains)") from e
     if engine == "google" and "/sorry/" in (nav.get("url") or ""):
         captcha = nav.get("captcha") or {}
         if not captcha.get("solved"):

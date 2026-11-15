@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PORT = 8765
-DEFAULTS = {"port": DEFAULT_PORT, "auto_captcha": False, "blocked_domains": []}
+DEFAULTS = {"port": DEFAULT_PORT, "auto_captcha": False, "blocked_domains": [], "allowed_domains": []}
 
 
 def _private(path: Path, mode: int = 0o600) -> None:
@@ -64,6 +64,7 @@ def write_extension_config(ext_dir: Path, cfg: dict, mode: str) -> Path:
         "mode": mode,
         "autoCaptcha": cfg.get("auto_captcha", False),
         "blockedDomains": cfg.get("blocked_domains", []),
+        "allowedDomains": cfg.get("allowed_domains", []),
     }
     path = ext_dir / "config.json"
     _write_private(path, json.dumps(data, indent=2))

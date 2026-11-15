@@ -36,3 +36,12 @@ def test_token_files_are_owner_only(tmp_path, monkeypatch):
     (ext / "config.json").write_text("{}", "utf-8")
     (ext / "config.json").chmod(0o644)
     assert mode(config.write_extension_config(ext, cfg, "real")) == 0o600
+
+
+def test_domain_lists_default_to_empty_and_reach_the_extension(tmp_path, monkeypatch):
+    monkeypatch.setenv("WEBPILOT_DIR", str(tmp_path))
+    cfg = config.load()
+    assert cfg["allowed_domains"] == [] and cfg["blocked_domains"] == []
+    cfg |= {"allowed_domains": ["example.com"], "blocked_domains": ["admin.example.com"]}
+    written = json.loads(config.write_extension_config(tmp_path, cfg, "temp").read_text("utf-8"))
+    assert written["allowedDomains"] == ["example.com"] and written["blockedDomains"] == ["admin.example.com"]

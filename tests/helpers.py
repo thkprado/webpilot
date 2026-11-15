@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import re
 import socket
 import struct
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
+import pytest
+
+from webpilot.client import Browser
 from webpilot.server import Daemon
 
 
@@ -72,3 +79,28 @@ def png_size(data: bytes) -> tuple[int, int]:
     """(width, height) of a PNG; fails the test if `data` is not one."""
     assert data[:8] == b"\x89PNG\r\n\x1a\n", data[:8]
     return struct.unpack(">II", data[16:24])
+
+
+@contextmanager
+def own_browser(home: Path, cfg: dict) -> Iterator[Browser]:
+    """A Browser on a temporary browser of its own (config dir `home` holding `cfg`, its own daemon and port),
+    for tests that need another config than the shared e2e browser."""
+    from webpilot import config, temp_browser
+
+    (home / "config.json").write_text(json.dumps(cfg), "utf-8")
+    port = free_port()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("WEBPILOT_DIR", str(home))
+        mp.setenv("WEBPILOT_PORT", str(port))
+        token = config.load()["token"]
+        with running_daemon(token, port):
+            try:
+                temp_browser.start(headless=os.environ.get("WEBPILOT_E2E_HEADED") != "1")
+                with Browser("temp", autostart=False) as b:
+                    deadline = time.monotonic() + 60
+                    while "temp" not in b.status()["extensions"]:
+                        assert time.monotonic() < deadline, f"browser with {cfg} did not connect; see {home}"
+                        time.sleep(0.2)
+                    yield b
+            finally:
+                temp_browser.stop()

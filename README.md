@@ -154,13 +154,15 @@ It reports domains read without a parser, repeated interactive flows (snapshots 
 
 | Item | Location |
 |---|---|
-| Config/token | `~/.webpilot/config.json` (`port`, `auto_captcha` (default `false`), `blocked_domains`, `profile`); rerun `webpilot setup` after editing it |
+| Config/token | `~/.webpilot/config.json` (`port`, `auto_captcha` (default `false`), `blocked_domains`, `allowed_domains`, `profile`); rerun `webpilot setup` after editing it |
 | Daemon log | `~/.webpilot/daemon.log` |
 | Screenshots | `~/.webpilot/screenshots/` |
 | Temporary browser | Chromium from Playwright; profile in `%TEMP%\webpilot-temp-*`, deleted by `webpilot temp stop` (or `webpilot stop`, which also stops the daemon); `webpilot temp start --headless` for headless. It starts with Chromium's occlusion detection off, so a window covered by others still takes real input; a minimized one does not |
 
 - `auto_captcha: true` makes `goto` click "I'm not a robot" checkboxes by itself (result in the `captcha` field); off by default. Image challenges are never solved: the agent asks you.
 - `blocked_domains` (for example `["mybank.example.com"]`) prevents the agent from navigating to or operating on those domains and their subdomains in the real browser. Case, a leading `*.` and a trailing dot do not matter.
+- `allowed_domains` (for example `["shop.example.com", "docs.example.org"]`), when not empty, keeps the agent on those domains and their subdomains: any other is refused like a blocked one, and so are `file:` and `data:` URLs (`about:blank` is fine). `blocked_domains` wins over it. `search` needs its engine's domain in the list (`www.google.com`, or `html.duckduckgo.com` with `--engine ddg`). Leave it empty (the default) to allow every site.
+- Both lists are checked before `goto`, `tab new`, `tab use`, `back`, `forward` and `fetch` (and after `fetch`'s redirects), on the tab of every command, and after every navigation or action: a click or redirect that lands outside them fails without reporting the page, and later commands on that tab fail too (`tab new URL` continues in another tab). Content of iframes from other domains inside an allowed page is not checked.
 - Environment variables: `WEBPILOT_MODE=temp`, `WEBPILOT_SESSION=name`, `WEBPILOT_PROFILE=name`, `WEBPILOT_HEADLESS=1`, `WEBPILOT_PORT`, `WEBPILOT_DIR`, `WEBPILOT_PARSERS_DIR`.
 
 ### Troubleshooting
@@ -192,7 +194,8 @@ agent ──shell──> webpilot CLI / Python lib ──WebSocket──> daemon
 
 WebPilot gives a program (and the AI agent behind it) control of a browser, so treat it like remote access to your machine:
 
-- In **real** mode the agent acts with your logged-in sessions: email, banking, work tools. Use `blocked_domains` for sites it must never touch, and prefer `--temp` (throwaway profile) when you do not need your accounts.
+- In **real** mode the agent acts with your logged-in sessions: email, banking, work tools. Use `blocked_domains` for sites it must never touch, or `allowed_domains` to keep it on the few it needs, and prefer `--temp` (throwaway profile) when you do not need your accounts.
+- Both domain lists guard against mistakes and against pages steering the agent elsewhere; they are not a sandbox. An agent with a shell can read and edit `~/.webpilot/config.json`, or reach a site without the browser.
 - The extension requests broad permissions (`<all_urls>`, `debugger`, `scripting`, `webRequest`, `tabs`). Load it only from a build you made yourself from this source, in a browser profile you control.
 - The local daemon listens on `127.0.0.1` only and requires the token in `~/.webpilot/config.json`. Keep that file private; anyone who can read it can drive your browser.
 - Session logs in `~/.webpilot/sessions/` record URLs and commands (typed text is only logged by length). Saved parser fixtures can contain page content; never commit pages from a logged-in browser.
