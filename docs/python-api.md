@@ -36,10 +36,13 @@ this `docs/` folder).
   field that fails raises `WebPilotError` naming it and the fields filled before it. The result has
   `"filled": [{"target", "field", "value" | "checked", "option"}]` (`value`: what the field kept; never a password's);
   `submit=True` then submits the last field's form (`"submitted"`).
-- `upload(target, *paths, drop=False)` gives local files to a file input, as the file picker would: `target` is the
-  `input[type=file]`, its label, the button that opens it or an element around it (the input may be hidden); with
-  `drop=True` the files are dropped on `target` (a drop zone). The result has `"uploaded"` (the input) or
-  `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; the session log keeps only the sizes.
+- `upload(target, *paths, drop=False, trusted=False)` gives local files to a file input, as the file picker would:
+  `target` is the `input[type=file]`, its label, the button that opens it or an element around it (the input may be
+  hidden); a button whose page makes its input in script is clicked, and the picker it opens gets the files (the
+  result then has `"clicked"`). With `drop=True` the files are dropped on `target` (a drop zone). The result has
+  `"uploaded"` (the input) or `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; `trusted=True`
+  has the browser read the files from disk through the debugger, without a limit (not in another site's iframe,
+  not with `drop`). The session log keeps only the sizes.
 - `hover(target, trusted=False)` moves the pointer onto `target` (it may be disabled), for menus and tooltips that
   open on hover; the result has `"hovered"`. Without `trusted` the mouse events are fired by script, which opens
   menus run by JavaScript; `changed: False` then comes with a hint to try `trusted=True`, the real pointer through

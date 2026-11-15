@@ -54,8 +54,9 @@ def _clean_args(args: dict) -> dict:
             # eval arguments are page data (often typed text): only their number and size
             out[k] = f"<{len(v)} values, {len(json.dumps(v, ensure_ascii=False))} chars>"
         elif k == "files" and isinstance(v, list):
-            # uploads: how many files and how large, never their names or content
-            out[k] = [_b64_size(f.get("data")) if isinstance(f, dict) else None for f in v]
+            # uploads: how many files and how large, never their names, paths or content
+            out[k] = [(f.get("bytes") if "path" in f else _b64_size(f.get("data"))) if isinstance(f, dict) else None
+                      for f in v]
         elif k == "headers" and isinstance(v, dict):
             out[k] = sorted(v)  # names only: values may be Cookie/Authorization
         elif isinstance(v, str) and len(v) > 200:

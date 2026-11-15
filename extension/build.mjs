@@ -15,6 +15,8 @@ const builds = [
   { ...common, entryPoints: ["src/page.ts"], outfile: "dist/page.js", format: "iife" },
   // Injected into pages (main world) during actions and navigations: answers alert/confirm/prompt.
   { ...common, entryPoints: ["src/dialogs.ts"], outfile: "dist/dialogs.js", format: "iife" },
+  // Injected into a frame (main world) while upload clicks a button that makes its file input in script.
+  { ...common, entryPoints: ["src/filehook.ts"], outfile: "dist/filehook.js", format: "iife" },
   // Toolbar popup: connection state and profile name.
   { ...common, entryPoints: ["src/popup.ts"], outfile: "dist/popup.js", format: "iife" },
 ];

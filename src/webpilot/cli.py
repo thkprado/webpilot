@@ -542,6 +542,8 @@ def upload(
                                            "around it (the input may be hidden); with --drop, the drop zone."),
     files: list[Path] = typer.Argument(..., help="The files to send."),
     drop: bool = typer.Option(False, "--drop", help="Drop the files on TARGET (a drop zone without a file input)."),
+    trusted: bool = typer.Option(False, "--trusted", help="The browser reads the files from disk through the "
+                                                           "debugger: no 50 MB limit (not with --drop)."),
     timeout: float = TARGET_TIMEOUT,
     wait_text: Optional[str] = WAIT_TEXT,
     wait_for: Optional[str] = WAIT_FOR,
@@ -552,8 +554,9 @@ def upload(
 ):
     """Give local files to a file input (as the file picker would), or drop them on a drop zone."""
     b = browser()
-    act_done(b, b.upload(target, *files, drop=drop, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
-                         wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
+    act_done(b, b.upload(target, *files, drop=drop, trusted=trusted, timeout=timeout, wait_text=wait_text,
+                         wait_selector=wait_for, wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text),
+             snapshot)
 
 
 @app.command()

@@ -82,22 +82,26 @@ def _response_body(res: dict, raw: bool) -> dict:
 
 
 # Largest total upload: the files travel base64-encoded inside one JSON message, then as a script argument.
+# upload --trusted sends paths instead (the browser reads the files), with no limit.
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
-def _upload_files(paths: tuple[str | Path, ...]) -> list[dict]:
-    """The files for Browser.upload, read and base64-encoded; fails before any request when one is missing or
-    they are too large together."""
+def _upload_files(paths: tuple[str | Path, ...], trusted: bool = False) -> list[dict]:
+    """The files for Browser.upload: read and base64-encoded, or with trusted their absolute paths and sizes;
+    fails before any request when one is missing or, without trusted, they are too large together."""
     if not paths:
         raise WebPilotError("give at least one file to upload")
     files = [Path(p).expanduser() for p in paths]
     for f in files:
         if not f.is_file():
             raise WebPilotError(f"file not found: {f}")
+    if trusted:
+        return [{"name": f.name, "path": str(f.resolve()), "bytes": f.stat().st_size} for f in files]
     total = sum(f.stat().st_size for f in files)
     if total > MAX_UPLOAD_BYTES:
         raise WebPilotError(f"files too large to upload: {total / 2**20:.1f} MB, the limit is "
-                            f"{MAX_UPLOAD_BYTES / 2**20:.0f} MB")
+                            f"{MAX_UPLOAD_BYTES / 2**20:.0f} MB; with --trusted (trusted=True) the browser reads "
+                            f"them from disk, without a limit")
     return [{"name": f.name, "type": mimetypes.guess_type(f.name)[0] or "application/octet-stream",
              "lastModified": round(f.stat().st_mtime * 1000), "data": base64.b64encode(f.read_bytes()).decode("ascii")}
             for f in files]
@@ -444,15 +448,26 @@ class Browser:
         """Submits the form containing target (or the focused / first visible form), running the page's handlers."""
         return self._act("submit", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text, target=target)
 
-    def upload(self, target: str, *paths: str | Path, drop: bool = False, timeout: float | None = None,
-               wait_text: str | None = None, wait_selector: str | None = None, wait_timeout: float = 10,
-               dialog: str | None = None, prompt_text: str | None = None) -> dict:
+    def upload(self, target: str, *paths: str | Path, drop: bool = False, trusted: bool = False,
+               timeout: float | None = None, wait_text: str | None = None, wait_selector: str | None = None,
+               wait_timeout: float = 10, dialog: str | None = None, prompt_text: str | None = None) -> dict:
         """Gives local files to a file input, as choosing them in the file picker would. target: the
         input[type=file], its label, the button that opens it or an element around it (the input may be hidden);
-        with drop=True, the drop zone the files are dropped on instead. The result has "files" ({name, bytes})."""
-        files = _upload_files(paths)
-        return self._act("upload", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
-                         target=target, files=files, drop=drop or None)
+        a button whose page makes the input when clicked is clicked (the result then has "clicked"). With
+        drop=True, the drop zone the files are dropped on instead. Up to 50 MB in all; trusted=True has the
+        browser read the files from disk through the debugger, without a limit (not with drop). The result has
+        "files" ({name, bytes})."""
+        if trusted and drop:
+            raise WebPilotError("upload --trusted cannot drop files: drop them without --trusted")
+        files = _upload_files(paths, trusted)
+        try:
+            return self._act("upload", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                             target=target, files=files, drop=drop or None, trusted=trusted or None)
+        except WebPilotError as e:
+            if trusted and "correctly encoded" in str(e):  # an extension from before upload --trusted
+                raise WebPilotError("the browser's WebPilot extension is older than this client and cannot "
+                                    "upload --trusted: reload it on the browser's extensions page") from e
+            raise
 
     def hover(self, target: str, trusted: bool = False, *, timeout: float | None = None, wait_text: str | None = None,
               wait_selector: str | None = None, wait_timeout: float = 10, dialog: str | None = None,

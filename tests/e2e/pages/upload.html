@@ -75,7 +75,8 @@
     document.body.innerHTML = '<h1>Child upload</h1><label for="inner">Child file</label> <input type="file" id="inner"><p id="out"></p>';
   } else if (!params.has("noframe")) {
     const f = document.createElement("iframe");
-    f.src = "upload.html?child=1";
+    // ?xsite=1: the child from localhost, another site, which the browser runs in another process.
+    f.src = params.has("xsite") ? `${location.protocol}//localhost:${location.port}/upload.html?child=1` : "upload.html?child=1";
     document.body.append(f);
   }
 </script>

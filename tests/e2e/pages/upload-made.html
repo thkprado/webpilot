@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Upload made on click</title>
+<script>
+  window.__log = [];
+  window.__errors = [];
+  // What an input received, read the way a page would: name, size and SHA-256.
+  async function show(field, files) {
+    for (const f of files) {
+      const buf = await f.arrayBuffer();
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)),
+                              (b) => b.toString(16).padStart(2, "0")).join("");
+      window.__log.push({ field, name: f.name, size: f.size, sha256: hash });
+    }
+    document.getElementById("out").textContent = Array.from(files, (f) => f.name).join(", ");
+  }
+  // An input made in script and never added to the document, as many upload widgets do.
+  function made(field, attrs = {}) {
+    const input = Object.assign(document.createElement("input"), { type: "file", ...attrs });
+    input.addEventListener("change", () => show(field, input.files));
+    return input;
+  }
+  // Without a user gesture (a script click), the browser refuses showPicker(): the page records that.
+  function picker(field) {
+    try { made(field).showPicker(); } catch (e) { window.__errors.push(e.name); }
+  }
+</script>
+</head>
+<body>
+<h1>Upload made on click</h1>
+<button type="button" id="make" onclick="made('make', { accept: '.txt,.png' }).click()">Add attachment</button>
+<button type="button" id="picker" onclick="picker('picker')">Add with picker</button>
+<button type="button" id="later" onclick="setTimeout(() => made('later').click(), 300)">Add later</button>
+<button type="button" id="multi" onclick="made('multi', { multiple: true }).click()">Add several</button>
+<button type="button" id="fsapi"
+        onclick="showOpenFilePicker().catch((e) => window.__errors.push(e.name))">Open with file access</button>
+<button type="button" id="nothing" onclick="window.__errors.push('nothing')">Does nothing</button>
+<div id="old"></div>
+<p id="out"></p>
+<script>
+  // ?stale=1: a hidden file input left elsewhere in the document, which a button of its own does not use.
+  if (new URLSearchParams(location.search).has("stale")) {
+    document.getElementById("old").innerHTML = '<input type="file" id="stale" hidden>';
+    document.getElementById("stale").addEventListener("change", (e) => show("stale", e.target.files));
+  }
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ webpilot type e7 "hello" --submit        # fill and press Enter
 webpilot type "select#country" "Brazil"  # choose a <select> option by text
 webpilot select e16 "billing"            # choose in a custom dropdown (role=combobox, react-select) or a <select>
 webpilot fill e3 "Ana" e5 "Brazil" e8 true  # several fields in one command (checkboxes: true/false); --submit
-webpilot upload e9 cv.pdf [more files]  # file input, its label or the button in front of it; --drop for a drop zone
+webpilot upload e9 cv.pdf [more files]  # file input, its label or the button that opens it; --drop for a drop zone; --trusted over 50 MB
 webpilot hover e5 [--trusted] -s         # menus/tooltips on hover; --trusted for CSS :hover menus, then read the page
 webpilot press Escape                    # keys: Enter Tab Escape ArrowDown PageDown a Control+a ...
 webpilot scroll down | up | top | bottom | e40

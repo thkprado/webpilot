@@ -132,3 +132,109 @@ def test_cli_uploads_and_the_log_keeps_only_sizes(b, site, notes, photo, monkeyp
     log = session_log.read([session_log.session_name()])[-1]
     assert log["cmd"] == "upload" and log["args"]["files"] == [16, 10240]
     assert "notes.txt" not in json.dumps(log) and "Meeting" not in json.dumps(log)
+
+
+# Inputs the page makes in script when its button is clicked, and opens with click() or showPicker().
+
+MADE = "input accept=.txt,.png (made by the page, not in the document)"
+
+
+def test_a_button_that_makes_its_input_on_click(b, site, notes):
+    b.goto(site.url("upload-made.html"))
+    res = b.upload("#make", notes)
+    assert res["uploaded"] == MADE and res["clicked"] == 'button#make "Add attachment"'
+    assert res["files"] == [{"name": "notes.txt", "bytes": 16}] and res["changed"] is True
+    assert received(b) == [entry(notes, "make")]
+
+
+def test_showpicker_later_and_multiple_ignore_a_stale_input(b, site, notes, photo):
+    b.goto(site.url("upload-made.html?stale=1"))  # a hidden input elsewhere, which these buttons do not use
+    assert b.upload("#picker", notes)["uploaded"] == "input (made by the page, not in the document)"
+    assert b.upload("#later", notes)["clicked"] == 'button#later "Add later"'  # the input comes 300 ms after
+    assert b.upload("#multi", notes, photo)["uploaded"].startswith("input multiple")
+    assert [e["field"] for e in page_log(b, 4)] == ["picker", "later", "multi", "multi"]
+
+
+def test_when_the_click_opens_no_picker(b, site, notes, photo):
+    b.goto(site.url("upload-made.html"))
+    with pytest.raises(WebPilotError, match=r"no file input for button#nothing \"Does nothing\", and clicking it "
+                                            r"opened no file picker"):
+        b.upload("#nothing", notes)
+    with pytest.raises(WebPilotError, match=r"2 files for a file input that takes one \(no multiple attribute\): "
+                                            r"input accept=.txt,.png"):
+        b.upload("#make", notes, photo)
+    with pytest.raises(WebPilotError, match=r"opens its file picker with showOpenFilePicker\(\)"):
+        b.upload("#fsapi", notes)
+    b.goto(site.url("upload-made.html?stale=1"))
+    assert b.upload("#nothing", notes)["uploaded"].startswith("input#stale")  # then the only input in the page
+    assert page_log(b) == [entry(notes, "stale")] and b.eval("window.__errors") == ["nothing"]
+
+
+def test_the_hook_is_gone_after_the_command(b, site, notes):
+    b.goto(site.url("upload-made.html"))
+    b.upload("#picker", notes)
+    b.click("#picker")  # a script click has no user gesture: the browser's own showPicker() refuses it
+    assert b.eval("window.__errors") == ["NotAllowedError"]
+    assert len(page_log(b, 1)) == 1
+
+
+# --trusted: the browser reads the files from their paths through the debugger, without the 50 MB limit.
+
+def test_trusted_has_no_size_limit(b, site, tmp_path):
+    big = tmp_path / "big.bin"
+    big.write_bytes(bytes(range(256)) * (51 * 4096))  # 51 MB
+    b.goto(site.url("upload.html?noframe=1"))
+    with pytest.raises(WebPilotError, match=r"files too large to upload: 51.0 MB, the limit is 50 MB; with --trusted"):
+        b.upload("#plain", big)
+    res = b.upload("#plain", big, trusted=True)
+    assert res["uploaded"] == 'input#plain "Resume" name=resume' and res["files"] == [{"name": "big.bin", "bytes": 51 * 2**20}]
+    assert received(b) == [entry(big, "plain")]
+
+
+def test_trusted_finds_inputs_like_the_rest(b, site, notes, photo):
+    b.goto(site.url("upload.html"))
+    snap = b.snapshot(interactive=True)["text"]
+    assert b.upload("text=Choose avatar", photo, trusted=True)["uploaded"].startswith("input#avatar")
+    assert b.upload(ref(snap, "button", "Pick in shadow"), notes, trusted=True)["uploaded"].startswith("input#shadow")
+    assert b.upload(ref(snap, "input:file", "Child file"), notes, trusted=True)["uploaded"].startswith("input#inner")
+    assert b.upload("#many", notes, photo, trusted=True)["files"][1] == {"name": "photo.png", "bytes": 10240}
+    log = page_log(b, 5)
+    assert [(e["field"], e.get("child", False)) for e in log] == [
+        ("avatar", False), ("shadow", False), ("inner", True), ("many", False), ("many", False)]
+    assert log[0]["sha256"] == entry(photo, "avatar")["sha256"]
+    with pytest.raises(WebPilotError, match=r"2 files for a file input that takes one"):
+        b.upload("#plain", notes, photo, trusted=True)
+    with pytest.raises(WebPilotError, match="upload --trusted cannot drop files"):
+        b.upload("#zone", notes, drop=True, trusted=True)
+
+
+def test_trusted_catches_the_picker_a_real_click_opens(b, site, notes, photo):
+    b.goto(site.url("upload-made.html?stale=1"))
+    res = b.upload("#make", notes, trusted=True)
+    assert res["uploaded"] == "input accept=.txt,.png" and res["clicked"] == 'button#make "Add attachment"'
+    assert b.upload("#picker", photo, trusted=True)["uploaded"] == "input"
+    assert received(b, 2) == [entry(notes, "make"), entry(photo, "picker")]
+    with pytest.raises(WebPilotError, match=r"opens its file picker with showOpenFilePicker\(\)"):
+        b.upload("#fsapi", notes, trusted=True)
+    assert b.upload("#nothing", notes, trusted=True)["uploaded"].startswith("input#stale")
+
+
+def test_trusted_cannot_reach_another_sites_iframe(b, site, notes):
+    b.goto(site.url("upload.html?xsite=1"))
+    inner = ref(b.snapshot(interactive=True)["text"], "input:file", "Child file")
+    with pytest.raises(WebPilotError, match="upload --trusted cannot reach this frame"):
+        b.upload(inner, notes, trusted=True)
+    assert b.upload(inner, notes)["uploaded"].startswith("input#inner")  # without --trusted it can
+
+
+def test_cli_trusted_logs_only_sizes(b, site, notes, monkeypatch, capsys):
+    b.goto(site.url("upload.html?noframe=1"))
+    monkeypatch.setattr(sys, "argv", ["webpilot", "--temp", "upload", "#plain", str(notes), "--trusted"])
+    try:
+        cli.run()
+    except SystemExit as e:
+        assert not e.code
+    assert json.loads(capsys.readouterr().out)["files"] == [{"name": "notes.txt", "bytes": 16}]
+    log = session_log.read([session_log.session_name()])[-1]
+    assert log["cmd"] == "upload" and log["args"]["files"] == [16] and log["args"]["trusted"] is True
+    assert "notes.txt" not in json.dumps(log) and str(notes.parent.name) not in json.dumps(log)
