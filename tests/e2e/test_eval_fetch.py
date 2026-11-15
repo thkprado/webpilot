@@ -1,10 +1,13 @@
-"""eval, fetch and screenshot against local pages."""
+"""eval, fetch, requests and screenshot against local pages."""
 
 import base64
+import json
+import sys
 
 import pytest
-from helpers import CANVAS, png_size
+from helpers import CANVAS, page_log, png_size
 
+from webpilot import cli
 from webpilot.client import WebPilotError
 
 pytestmark = pytest.mark.e2e
@@ -124,3 +127,89 @@ def test_screenshot_viewport_and_full_page(b, site, tmp_path):
     assert png_size(shot.read_bytes()) == (round(width * scale), round(height * scale))
     full_w, full_h = png_size(b.screenshot(tmp_path / "full.png", full=True).read_bytes())
     assert full_h > height * scale and abs(full_h - page_height * scale) <= 2 and full_w >= width * scale - 20
+
+
+# ------------------------------------------------------------------ requests
+
+
+def paths(res: dict) -> list[str]:
+    return [r["url"].split("/", 3)[3] for r in res["requests"]]
+
+
+# The page's two calls on load start in the same millisecond or so: either may come first.
+LOAD = ["api/echo?list=items", "api/echo?xhr=1"]
+
+
+def open_requests(b, site, frame: bool = False) -> None:
+    port = site.other.rsplit(":", 1)[1]
+    b.goto(site.url(f"requests.html?port={port}" if frame else "requests.html"))
+    b.wait(text="items:")
+    page_log(b, 2 if frame else 1)  # the XHR answered (and the iframe's call)
+
+
+def test_requests_lists_the_pages_fetch_and_xhr_calls(b, site):
+    open_requests(b, site)
+    res = b.requests()
+    assert res["url"] == site.url("requests.html")
+    assert sorted(paths(res)) == LOAD
+    call = next(r for r in res["requests"] if r["url"].endswith("list=items"))
+    assert call["status"] == 200 and call["contentType"] == "application/json" and call["bytes"] > 0
+    assert call["ms"] >= 0 and "type" not in call and "n" not in call and "frame" not in call
+    # --all adds the image (and the favicon), with each request's type.
+    every = b.requests(all=True)
+    assert {"api/echo?list=items", "api/echo?xhr=1", "pixel.svg"} <= set(paths(every))
+    types = {p: r["type"] for p, r in zip(paths(every), every["requests"])}
+    assert types["pixel.svg"] == "img" and types["api/echo?xhr=1"] == "xhr" and types["api/echo?list=items"] == "fetch"
+    assert paths(b.requests(filter="XHR=1")) == ["api/echo?xhr=1"]  # any case
+    # WebPilot's own fetch is not the page's: left out.
+    b.fetch("/api/echo?own=1")
+    assert "api/echo?own=1" not in paths(b.requests())
+
+
+def test_requests_new_after_an_action_and_repeated_urls(b, site):
+    open_requests(b, site)
+    b.click("#more", wait_text="page 2")
+    assert paths(b.requests(new=True)) == ["api/echo?page=2"]
+    b.click("#again", wait_text="three calls done")
+    new = b.requests(new=True)["requests"]
+    assert len(new) == 1 and new[0]["url"].endswith("api/echo?same=1") and new[0]["n"] == 3
+    # After a navigation, --new is what the new page asked.
+    open_requests(b, site)
+    assert sorted(paths(b.requests(new=True))) == LOAD
+    empty = b.requests(new=True, filter="nothing-like-this")
+    assert empty["requests"] == [] and "no requests since the last action" in empty["hint"]
+
+
+def test_requests_max_keeps_the_newest_and_counts_the_rest(b, site):
+    open_requests(b, site)
+    b.click("#more", wait_text="page 2")
+    res = b.requests(max=1)
+    assert paths(res) == ["api/echo?page=2"] and res["omitted"] == 2
+    with pytest.raises(WebPilotError, match="max must be a positive whole number"):
+        b.requests(max=0)
+
+
+def test_requests_past_the_browsers_buffer_and_in_iframes(b, site):
+    open_requests(b, site, frame=True)
+    res = b.requests()
+    child = [r for r in res["requests"] if "frame" in r]
+    assert len(child) == 1 and child[0]["url"] == site.other_url("api/echo?child=1")
+    assert child[0]["frame"].startswith("f")
+    # The browser keeps 250 entries per page; calls after that still show.
+    b.eval("Promise.all(Array.from({length: 300}, (_, i) => fetch('/api/echo?n=' + i)))", timeout=30)
+    b.click("#more", wait_text="page 2")
+    assert paths(b.requests(new=True)) == ["api/echo?page=2"]
+    assert len(b.requests(filter="echo?n=", max=1000)["requests"]) == 300
+
+
+def test_cli_requests_prints_one_request_per_line(b, site, monkeypatch, capsys):
+    open_requests(b, site)
+    monkeypatch.setattr(sys, "argv", ["webpilot", "--temp", "requests", "--filter", "echo"])
+    try:
+        cli.run()
+    except SystemExit as e:
+        assert not e.code
+    printed = capsys.readouterr().out
+    res = json.loads(printed)
+    assert sorted(paths(res)) == LOAD
+    assert sum(line.startswith('    {') and line.rstrip(',').endswith('}') for line in printed.splitlines()) == 2

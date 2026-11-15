@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Requests</title>
+</head>
+<body>
+<h1>Requests</h1>
+<p id="items">loading</p>
+<img src="pixel.svg" alt="an image, not an API call">
+<button id="more" onclick="more()">More</button>
+<button id="again" onclick="again()">Same call three times</button>
+<p id="out"></p>
+<iframe id="child" title="child"></iframe>
+<script>
+  window.__log = [];
+  const q = new URLSearchParams(location.search);
+  if (q.get("child") === "1") {
+    // As an iframe: one call of its own.
+    document.body.replaceChildren("child");
+    fetch("/api/echo?child=1").then(() => parent.postMessage("child loaded", "*"));
+  } else {
+    // On load: a fetch and an XHR, the calls a parser would want to know about.
+    fetch("/api/echo?list=items").then((r) => r.json()).then((j) => {
+      document.getElementById("items").textContent = "items: " + j.path;
+    });
+    const x = new XMLHttpRequest();
+    x.open("GET", "/api/echo?xhr=1");
+    x.onload = () => window.__log.push("xhr " + x.status);
+    x.send();
+    // ?port=PORT: this page as an iframe from another origin (only a number is taken); without it, no iframe.
+    const port = Number.parseInt(q.get("port"), 10);
+    if (port > 0 && port < 65536) document.getElementById("child").src = `http://127.0.0.1:${port}/requests.html?child=1`;
+    addEventListener("message", (e) => window.__log.push(String(e.data)));
+  }
+
+  async function more() {
+    const r = await fetch("/api/echo?page=2");
+    document.getElementById("out").textContent = "page 2: " + (await r.json()).path;
+  }
+
+  async function again() {
+    for (let i = 0; i < 3; i++) await fetch("/api/echo?same=1");
+    document.getElementById("out").textContent = "three calls done";
+  }
+</script>
+</body>
+</html>

@@ -117,6 +117,10 @@ async function handle(sock: WebSocket, req: { id: string; cmd: string; args?: Ar
 const getState = async () => (await chrome.storage.session.get(["currentTabId", "groupId"])) as State;
 const setState = (s: State) => chrome.storage.session.set(s);
 
+/** When the last action or navigation in a tab started (epoch ms), for `requests --new`. */
+const markKey = (tabId: number) => `actionAt${tabId}`;
+const markAction = (tabId: number) => chrome.storage.session.set({ [markKey(tabId)]: Date.now() });
+
 /** Without the trailing dot: "bank.com." is the same site as "bank.com". URL() already lowercases. */
 const bareHost = (h: string) => h.replace(/\.+$/, "");
 
@@ -348,6 +352,7 @@ async function act(
   await armDialogs(tabId, a.dialog === "accept", a.promptText ?? null);
   let armed = true;
   const net = watchNetwork(tabId);
+  await markAction(tabId);
   try {
     const r = await answering(tabId, [found.frameId], run(found));
     const marker = !!(a.waitText || a.waitSelector);
@@ -417,6 +422,9 @@ const callWp = async (n: string, a: any[]) => {
   if (!wp || typeof wp[n] !== "function") return { missing: true };
   try { return { value: await wp[n](...a) }; } catch (e: any) { return { error: String(e?.message ?? e) }; }
 };
+
+/** Marks WebPilot's own fetch in the page's Resource Timing (see `requests` in page.ts). */
+const OWN_FETCH = "#webpilot-fetch";
 
 /** HTTP request from the page's context (its cookies and session); runs via executeScript, so self-contained. */
 const pageFetch = async (url: string, method: string, headers: Record<string, string>, body: string | null,
@@ -942,6 +950,7 @@ async function navigate(tabId: number, url: string | undefined, action: () => Pr
   try {
     return await withLoadShim(url, async () => {
       const loaded = waitForLoad(tabId);
+      await markAction(tabId);
       await action();
       const ok = await answering(tabId, [0], loaded);
       if (ok) await domIdle(tabId, 300, 3000); // let client-side rendering finish before a snapshot
@@ -1013,6 +1022,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     } finally {
       await release();
     }
+    await chrome.storage.session.remove(markKey(Number(id)));
     if (Number(id) === st.currentTabId) await chrome.storage.session.remove("currentTabId");
     return { closed: Number(id), ...(dialogs.length ? { dialogs } : {}) };
   },
@@ -1182,18 +1192,52 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     if (!/^https?:/.test(tab.url ?? "")) {
       throw new Error(`fetch runs from the current tab's page, which is ${tab.url || "empty"}: open the site first (goto URL)`);
     }
-    let url: string;
-    try { url = new URL(String(a.url), tab.url).href; } catch { throw new Error(`bad URL for this tab: ${a.url}`); }
-    checkBlocked(url);
+    let url: URL;
+    try { url = new URL(String(a.url), tab.url); } catch { throw new Error(`bad URL for this tab: ${a.url}`); }
+    checkBlocked(url.href);
+    url.hash = OWN_FETCH; // so `requests` leaves it out; the fragment never reaches the server
     const [res] = await answering(tab.id!, [0], chrome.scripting.executeScript({
       target: { tabId: tab.id! }, func: pageFetch, world: "MAIN", // the isolated world's requests never left the tab
-      args: [url, method, a.headers ?? {}, a.body ?? null, a.timeoutMs ?? 120000],
+      args: [url.href, method, a.headers ?? {}, a.body ?? null, a.timeoutMs ?? 120000],
     })).catch((e) => { throw explain(e); });
     const r = res?.result as any;
     if (!r) throw new Error(RESTRICTED);
     if (r.error) throw new Error(r.error);
     checkBlocked(r.url); // after redirects
     return r;
+  },
+  requests: async (a) => {
+    const tab = await resolveTab(a);
+    const max = a.max ?? 50;
+    if (!Number.isInteger(max) || max < 1) throw new Error(`max must be a positive whole number, not ${a.max}`);
+    let since: number | null = null;
+    if (a.new) since = ((await chrome.storage.session.get(markKey(tab.id!)))[markKey(tab.id!)] as number | undefined) ?? null;
+    const found = await allFramesCall(tab.id!, "requests", !!a.all, a.filter ?? null, since);
+    if (!found.length) throw new Error(RESTRICTED);
+    // The same URL from the same frame (polling, retries) is one entry with its count, at its latest position.
+    const byKey = new Map<string, any>();
+    for (const f of found) {
+      for (const r of f.value ?? []) {
+        const key = `${f.frameId} ${r.url}`;
+        const prev = byKey.get(key);
+        byKey.delete(key);
+        byKey.set(key, { ...r, ...(f.frameId ? { frame: `f${f.frameId}` } : {}), n: (prev?.n ?? 0) + 1 });
+      }
+    }
+    const list = [...byKey.values()].sort((x, y) => x.at - y.at).map(({ at, n, type, contentType, ...r }) => ({
+      ...r, ...(a.all ? { type } : {}), ...(contentType ? { contentType } : {}), ...(n > 1 ? { n } : {}),
+    }));
+    const shown = list.slice(-max);
+    const out: any = { tabId: tab.id, url: tab.url, requests: shown };
+    if (list.length > shown.length) out.omitted = list.length - shown.length;
+    if (a.new && since === null) out.hint = "no earlier action in this tab: these are all the page's requests";
+    else if (!shown.length) {
+      out.hint = (a.new ? "no requests since the last action" : "no requests in this page")
+        + (a.filter ? ` whose URL contains ${JSON.stringify(a.filter)}` : "")
+        + (a.all ? "" : " (fetch and XHR only; --all adds images, scripts and the rest)")
+        + "; requests still waiting for an answer are not listed";
+    }
+    return out;
   },
   screenshot: async (a) => {
     const tab = await resolveTab(a);

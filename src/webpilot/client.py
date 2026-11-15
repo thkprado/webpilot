@@ -339,6 +339,14 @@ class Browser:
                         body=body, timeoutMs=round(timeout * 1000), allowWrite=allow_write or None)
         return _response_body(res, raw)
 
+    def requests(self, new: bool = False, all: bool = False, filter: str | None = None, max: int = 50) -> dict:
+        """The fetch and XHR calls the current page made (all=True: images, scripts and the rest too), from the
+        browser's Resource Timing: {"url", "requests": [{"url", "status", "ms", "bytes", "contentType", "n",
+        "frame"}], "omitted", "hint"}, oldest first. new=True: only those after the last action or navigation;
+        filter: a URL substring; max: the newest kept (the rest counted in "omitted"). The same URL repeated is
+        one entry with its count `n`. No method, headers or bodies: `fetch` one URL to see its answer."""
+        return self.call("requests", new=new or None, all=all or None, filter=filter, max=max)
+
     # ------------------------------------------------------------ interaction
 
     # Actions wait up to `timeout` seconds for their target, then for the page to settle (load + quiet DOM).

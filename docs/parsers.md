@@ -10,7 +10,9 @@ A parser turns a site's HTML into compact JSON, so you do not have to read the w
 automatically whenever the URL matches. Parsers also match iframes: when the page itself has none, the first iframe
 with one is parsed (`"frame"` and `"page_url"` in the result).
 
-**When to write one:** the same site is read two or more times, or `reflect-data` suggests it.
+**When to write one:** the same site is read two or more times, or `reflect-data` suggests it. Before parsing the
+HTML of a page that loads its data after it opens (lists, search results, dashboards), run `webpilot requests`: if
+a JSON call carries the data, a script that `fetch`es it (below) beats a parser.
 
 **Where:** `<webpilot>/parsers_user/<name>.py`. It is found automatically and takes precedence over the built-in
 parsers (`src/webpilot/parsers/`: google, duckduckgo; their fixtures in `tests/fixtures/`).

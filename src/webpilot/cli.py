@@ -258,6 +258,23 @@ def text(
 
 
 @app.command()
+def requests(
+    new: bool = typer.Option(False, "--new", help="Only those after the last action or navigation in this tab."),
+    all_: bool = typer.Option(False, "--all", help="Images, scripts, styles and the rest too, not just fetch and XHR."),
+    filter_: Optional[str] = typer.Option(None, "--filter", "-f", help="Only URLs containing this text."),
+    max_: int = typer.Option(50, "--max", min=1, help="Show the newest N (the rest are counted in omitted)."),
+):
+    """Requests the page made (fetch and XHR by default), oldest first: to find the JSON API behind a page.
+    Status, time, size and content type; no method or bodies (fetch one URL to read its answer)."""
+    res = browser().requests(new, all_, filter_, max_)
+    # One request per line: still JSON, but a long list stays readable.
+    lines = [json.dumps(r, ensure_ascii=False) for r in res.pop("requests")]
+    head = json.dumps(res, ensure_ascii=False, indent=2)[:-2]
+    body = ",\n".join(f"    {line}" for line in lines)
+    print(f'{head},\n  "requests": [\n{body}\n  ]\n}}' if lines else f'{head},\n  "requests": []\n}}')
+
+
+@app.command()
 def screenshot(
     output: Optional[str] = typer.Option(None, "--out", "-o"),
     full: bool = typer.Option(False, "--full", help="Whole page instead of the viewport."),

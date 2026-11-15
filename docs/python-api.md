@@ -22,7 +22,8 @@ Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is
 this `docs/` folder).
 
 - Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, upload, press, submit, scroll,
-  wait, eval, fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`.
+  wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info,
+  status`.
 - `click`/`type`/`select`/`upload`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
   their result has `waited: {"found", "ms"}`. They also take `dialog="accept"` (default: dismiss) and
   `prompt_text=` for the `alert`/`confirm`/`prompt` the page opens meanwhile; those are listed in the result as
@@ -54,7 +55,19 @@ A script that will be run again belongs in `parsers_user/scripts/` (see [parsers
 
 When a site the user is logged into has a JSON API (dashboards, admin panels), call it with `fetch` instead of
 reading pages: open the site once, then use relative URLs (they resolve against the current tab's page; another
-origin works only if it allows CORS). Example with Grafana querying Loki through its datasource proxy:
+origin works only if it allows CORS).
+
+To find the API, list what the page asked the server: `webpilot requests` (`b.requests()`) gives the page's fetch
+and XHR calls, oldest first, as `{"url", "status", "ms", "bytes", "contentType"}` (plus `"n"` for a URL called
+several times and `"frame"` for an iframe's calls). `--new` (`new=True`) keeps those after the last action or
+navigation ("which call did that click make?"), `-f TEXT` filters the URLs, `--all` adds images, scripts and styles,
+`--max N` (50) keeps the newest. Then `webpilot fetch URL` to read one answer. It comes from the browser's Resource
+Timing, so: no method, headers or bodies (a POST-only API shows its URL, not what it sent); calls still waiting
+for an answer are not listed; after a redirect the URL is the first one; status 0 is a call that failed (network
+error, refused by CORS) or another origin's answer the page could not read; another origin's sizes are 0 unless it
+sends `Timing-Allow-Origin`. WebPilot's own `fetch` is left out.
+
+Example with Grafana querying Loki through its datasource proxy:
 
 ```python
 from urllib.parse import urlencode

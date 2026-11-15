@@ -105,7 +105,9 @@ def analyze(entries: list[dict]) -> dict:
     for name, d in sorted(domains.items(), key=lambda kv: -kv[1]["raw_chars"]):
         if name and d["raw_reads"] >= 2 and not d["parsers"] and not is_flow(d):
             suggestions.append(
-                f"Write a parser for {name}: {d['raw_reads']} raw page reads ({d['raw_chars']} chars) and no parser."
+                f"Write a parser for {name}: {d['raw_reads']} raw page reads ({d['raw_chars']} chars) and no parser. "
+                "If the page loads its data after it opens, `webpilot requests` there shows the JSON call a script "
+                "could fetch instead."
             )
     for name, d in sorted(domains.items(), key=lambda kv: -kv[1]["action_reads"]):
         if name and is_flow(d):
