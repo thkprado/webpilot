@@ -34,6 +34,13 @@ def domain(url: str | None) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+def _b64_size(data: object) -> int | None:
+    """Bytes encoded by a base64 string, without decoding it."""
+    if not isinstance(data, str):
+        return None
+    return len(data) * 3 // 4 - (len(data) - len(data.rstrip("=")))
+
+
 def _clean_args(args: dict) -> dict:
     out = {}
     for k, v in args.items():
@@ -42,6 +49,9 @@ def _clean_args(args: dict) -> dict:
         elif k == "args" and isinstance(v, list):
             # eval arguments are page data (often typed text): only their number and size
             out[k] = f"<{len(v)} values, {len(json.dumps(v, ensure_ascii=False))} chars>"
+        elif k == "files" and isinstance(v, list):
+            # uploads: how many files and how large, never their names or content
+            out[k] = [_b64_size(f.get("data")) if isinstance(f, dict) else None for f in v]
         elif k == "headers" and isinstance(v, dict):
             out[k] = sorted(v)  # names only: values may be Cookie/Authorization
         elif isinstance(v, str) and len(v) > 200:

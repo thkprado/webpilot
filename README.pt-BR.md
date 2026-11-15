@@ -126,9 +126,9 @@ O que os agentes leem fica em `docs/`, em inglês:
 | [docs/reflect.md](docs/reflect.md) | no fim de uma sessão |
 
 As regras do guia impedem os agentes de agir nas suas contas sem perguntar: nada de compras, mensagens, exclusões,
-mudanças de configuração ou escritas HTTP sem a sua confirmação; as suas outras abas só quando pedido; com vários
-perfis de navegador, eles perguntam qual usar; param diante de desafios de captcha e pedem que você faça login em
-vez de digitar senhas.
+mudanças de configuração ou escritas HTTP sem a sua confirmação; só os arquivos que você pediu para enviar, ao site
+que você indicou; as suas outras abas só quando pedido; com vários perfis de navegador, eles perguntam qual usar;
+param diante de desafios de captcha e pedem que você faça login em vez de digitar senhas.
 
 ## 3. Parsers, notas e scripts de sites
 

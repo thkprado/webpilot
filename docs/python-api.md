@@ -21,13 +21,17 @@ with Browser() as b:                    # Browser("temp") for the temporary brow
 Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is the WebPilot folder, the parent of
 this `docs/` folder).
 
-- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, press, submit, scroll, wait, eval,
-  fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`.
-- `click`/`type`/`select`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
+- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, upload, press, submit, scroll,
+  wait, eval, fetch, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info, status`.
+- `click`/`type`/`select`/`upload`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
   their result has `waited: {"found", "ms"}`. They also take `dialog="accept"` (default: dismiss) and
   `prompt_text=` for the `alert`/`confirm`/`prompt` the page opens meanwhile; those are listed in the result as
   `dialogs: [{"type", "message", "answer"}]` (plus `"frame"` inside an iframe). `goto`, `reload`, `back`,
   `forward` and `close_tab` dismiss dialogs of a loading page and accept a "Leave site?" prompt, listed the same way.
+- `upload(target, *paths, drop=False)` gives local files to a file input, as the file picker would: `target` is the
+  `input[type=file]`, its label, the button that opens it or an element around it (the input may be hidden); with
+  `drop=True` the files are dropped on `target` (a drop zone). The result has `"uploaded"` (the input) or
+  `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; the session log keeps only the sizes.
 - `wait(selector=None, text=None, timeout=10, gone=False)` returns `{"found", "ms"}` and does not raise on a
   timeout: check `found`.
 - `eval(expression, timeout=60, args=None)` awaits promises for up to `timeout` seconds. Pass data as `args` (a list

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Upload</title>
+<style>
+  .btn { border: 1px solid #888; padding: 4px 8px; cursor: pointer; }
+  #zone { width: 300px; height: 80px; border: 2px dashed #888; }
+</style>
+<script>
+  window.__log = [];
+  const params = new URLSearchParams(location.search);
+  const child = params.has("child");
+  // What a field received, read the way a page would: name, size, type, SHA-256, and the text of small text files.
+  async function show(field, files) {
+    for (const f of files) {
+      const buf = await f.arrayBuffer();
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", buf)),
+                              (b) => b.toString(16).padStart(2, "0")).join("");
+      const entry = { field, name: f.name, size: f.size, type: f.type, sha256: hash };
+      if (f.type.startsWith("text/") && f.size < 1000) entry.text = await f.text();
+      window.__log.push(entry);
+      if (child) parent.postMessage({ upload: entry }, "*");
+    }
+    document.getElementById("out").textContent = Array.from(files, (f) => f.name).join(", ");
+  }
+  addEventListener("message", (e) => { if (e.data?.upload) window.__log.push({ ...e.data.upload, child: true }); });
+  addEventListener("change", (e) => { if (e.target.type === "file") show(e.target.id, e.target.files); }, true);
+</script>
+</head>
+<body>
+<h1>Upload</h1>
+<p><label for="plain">Resume</label> <input type="file" id="plain" name="resume"></p>
+
+<form id="avatar-form">
+  <label for="avatar" class="btn">Choose avatar</label>
+  <input type="file" id="avatar" accept="image/*" hidden>
+</form>
+
+<form id="doc-form">
+  <button type="button" id="attach" onclick="document.getElementById('doc').click()">Attach document</button>
+  <input type="file" id="doc" style="display: none">
+</form>
+
+<p><label for="many">Photos</label> <input type="file" id="many" multiple></p>
+
+<form id="two">
+  <button type="button" id="both">Attach ID</button>
+  <input type="file" id="front" name="front">
+  <input type="file" id="back" name="back">
+</form>
+
+<div id="zone">Drop files here</div>
+<div id="dead">Not a drop zone</div>
+
+<file-picker></file-picker>
+
+<p id="out"></p>
+<script>
+  const zone = document.getElementById("zone");
+  zone.addEventListener("dragover", (e) => e.preventDefault());
+  zone.addEventListener("drop", (e) => { e.preventDefault(); show("zone", e.dataTransfer.files); });
+
+  customElements.define("file-picker", class extends HTMLElement {
+    connectedCallback() {
+      const root = this.attachShadow({ mode: "open" });
+      root.innerHTML = '<button type="button" id="pick">Pick in shadow</button><input type="file" id="shadow" hidden>';
+      root.getElementById("pick").onclick = () => root.getElementById("shadow").click();
+      // change does not leave a shadow root: report it from inside.
+      root.getElementById("shadow").addEventListener("change", (e) => show("shadow", e.target.files));
+    }
+  });
+
+  if (child) {
+    document.body.innerHTML = '<h1>Child upload</h1><label for="inner">Child file</label> <input type="file" id="inner"><p id="out"></p>';
+  } else if (!params.has("noframe")) {
+    const f = document.createElement("iframe");
+    f.src = "upload.html?child=1";
+    document.body.append(f);
+  }
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import os
 import socket
 import subprocess
@@ -73,6 +74,28 @@ def _response_body(res: dict, raw: bool) -> dict:
         except ValueError:
             pass  # labelled JSON but is not: keep the text
     return res
+
+
+# Largest total upload: the files travel base64-encoded inside one JSON message, then as a script argument.
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+def _upload_files(paths: tuple[str | Path, ...]) -> list[dict]:
+    """The files for Browser.upload, read and base64-encoded; fails before any request when one is missing or
+    they are too large together."""
+    if not paths:
+        raise WebPilotError("give at least one file to upload")
+    files = [Path(p).expanduser() for p in paths]
+    for f in files:
+        if not f.is_file():
+            raise WebPilotError(f"file not found: {f}")
+    total = sum(f.stat().st_size for f in files)
+    if total > MAX_UPLOAD_BYTES:
+        raise WebPilotError(f"files too large to upload: {total / 2**20:.1f} MB, the limit is "
+                            f"{MAX_UPLOAD_BYTES / 2**20:.0f} MB")
+    return [{"name": f.name, "type": mimetypes.guess_type(f.name)[0] or "application/octet-stream",
+             "lastModified": round(f.stat().st_mtime * 1000), "data": base64.b64encode(f.read_bytes()).decode("ascii")}
+            for f in files]
 
 
 def _out_chars(value: Any) -> int:
@@ -365,6 +388,16 @@ class Browser:
                prompt_text: str | None = None) -> dict:
         """Submits the form containing target (or the focused / first visible form), running the page's handlers."""
         return self._act("submit", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text, target=target)
+
+    def upload(self, target: str, *paths: str | Path, drop: bool = False, timeout: float | None = None,
+               wait_text: str | None = None, wait_selector: str | None = None, wait_timeout: float = 10,
+               dialog: str | None = None, prompt_text: str | None = None) -> dict:
+        """Gives local files to a file input, as choosing them in the file picker would. target: the
+        input[type=file], its label, the button that opens it or an element around it (the input may be hidden);
+        with drop=True, the drop zone the files are dropped on instead. The result has "files" ({name, bytes})."""
+        files = _upload_files(paths)
+        return self._act("upload", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         target=target, files=files, drop=drop or None)
 
     def scroll(self, to: str = "down", amount: int | None = None) -> dict:
         return self.call("scroll", to=to, amount=amount)

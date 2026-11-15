@@ -485,6 +485,26 @@ def submit(
 
 
 @app.command()
+def upload(
+    target: str = typer.Argument(..., help="The file input, its label, the button that opens it, or an element "
+                                           "around it (the input may be hidden); with --drop, the drop zone."),
+    files: list[Path] = typer.Argument(..., help="The files to send."),
+    drop: bool = typer.Option(False, "--drop", help="Drop the files on TARGET (a drop zone without a file input)."),
+    timeout: float = TARGET_TIMEOUT,
+    wait_text: Optional[str] = WAIT_TEXT,
+    wait_for: Optional[str] = WAIT_FOR,
+    wait_timeout: float = WAIT_TIMEOUT,
+    snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
+):
+    """Give local files to a file input (as the file picker would), or drop them on a drop zone."""
+    b = browser()
+    act_done(b, b.upload(target, *files, drop=drop, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
+                         wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
+
+
+@app.command()
 def scroll(to: str = typer.Argument("down", help="down | up | top | bottom | ref | selector"),
            amount: Optional[int] = typer.Option(None, "--px")):
     """Scroll the page or bring an element into view."""

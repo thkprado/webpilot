@@ -21,6 +21,7 @@ webpilot submit [e7] -s                  # submit the form around e7 (or the foc
 webpilot type e7 "hello" --submit        # fill and press Enter
 webpilot type "select#country" "Brazil"  # choose a <select> option by text
 webpilot select e16 "billing"            # choose in a custom dropdown (role=combobox, react-select) or a <select>
+webpilot upload e9 cv.pdf [more files]  # file input, its label or the button in front of it; --drop for a drop zone
 webpilot press Escape                    # keys: Enter Tab Escape ArrowDown PageDown a Control+a ...
 webpilot scroll down | up | top | bottom | e40
 webpilot wait --text "Order confirmed" --timeout 20  # exit 1 if it does not appear in time
@@ -99,6 +100,7 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 - Dialogs (`alert`, `confirm`, `prompt`) opened during an action are answered at once and listed in the result's
   `dialogs`. A `confirm` or `prompt` is dismissed by default: that is the site asking the user to confirm (delete,
   send, pay, leave). Repeat with `--dialog accept` only when the rules above allow the action and the user agreed.
+- `upload` sends only the files the user asked to send, to the site they named; never other files from their disk.
 - Prefer `click`/`type` without `--trusted`. Use `--trusted` (real input through the debugger) only when the page
   ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s, and fails when another
   element covers the target (a banner): close that first.

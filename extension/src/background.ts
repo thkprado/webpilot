@@ -273,18 +273,18 @@ async function settle(
 }
 
 /**
- * Polls until the target exists, is visible and enabled (it may still be rendering). Selectors and
- * text= targets not found in the main frame are looked for in iframes. Returns the frame and
- * whether a stale ref was re-resolved.
+ * Polls until the target exists, is visible and enabled (it may still be rendering), or passes another page
+ * check (`readyUpload`). Selectors and text= targets not found in the main frame are looked for in iframes.
+ * Returns the frame and whether a stale ref was re-resolved.
  */
-async function waitTarget(tabId: number, raw: string, timeoutMs: number): Promise<Loc & { reresolved: boolean }> {
+async function waitTarget(tabId: number, raw: string, timeoutMs: number, check = "ready"): Promise<Loc & { reresolved: boolean }> {
   const loc = splitRef(raw);
   const anyFrame = loc.frameId === 0 && !/^e\d+$/.test(loc.target);
   const end = Date.now() + timeoutMs;
   for (;;) {
     let r: { ok: boolean; reason?: string; fatal?: boolean; reresolved?: boolean };
     try {
-      r = await frameCall(tabId, loc.frameId, "ready", loc.target);
+      r = await frameCall(tabId, loc.frameId, check, loc.target);
     } catch (e: any) {
       rethrowBlocked(e);
       r = { ok: false, reason: String(e?.message ?? e) }; // page navigating or restricted
@@ -293,7 +293,7 @@ async function waitTarget(tabId: number, raw: string, timeoutMs: number): Promis
     if (r.fatal) throw new Error(r.reason);
     if (anyFrame) {
       try {
-        const hit = (await allFramesCall(tabId, "ready", loc.target)).find((f) => f.frameId !== 0 && f.value?.ok);
+        const hit = (await allFramesCall(tabId, check, loc.target)).find((f) => f.frameId !== 0 && f.value?.ok);
         if (hit) return { frameId: hit.frameId, target: loc.target, reresolved: false };
       } catch (e) { rethrowBlocked(e); /* navigating */ }
     }
@@ -334,16 +334,16 @@ type ActResult = { desc?: string; count: number; reresolved?: boolean; toggled?:
  * the page changed, and optionally waits for something (args.waitText / args.waitSelector) that
  * marks the next state. With such a marker the settle gives up on DOM churn sooner, since the
  * marker is what tells that the next state arrived (pages with a running clock never go quiet).
- * `after` adds fields read once the page settled.
+ * `after` adds fields read once the page settled; `check` is the page function that tells the target is ready.
  */
 async function act(
   tabId: number, a: Args, target: string | null, key: string, run: (loc: Loc) => Promise<ActResult>,
-  after?: () => Promise<Record<string, unknown>>,
+  after?: () => Promise<Record<string, unknown>>, check = "ready",
 ) {
   if (a.dialog !== undefined && a.dialog !== "accept" && a.dialog !== "dismiss") {
     throw new Error(`dialog must be accept or dismiss, not ${JSON.stringify(a.dialog)}`);
   }
-  const found = target ? await waitTarget(tabId, target, (a.timeout ?? 5) * 1000) : { frameId: 0, target: "", reresolved: false };
+  const found = target ? await waitTarget(tabId, target, (a.timeout ?? 5) * 1000, check) : { frameId: 0, target: "", reresolved: false };
   const url = (await chrome.tabs.get(tabId)).url;
   await armDialogs(tabId, a.dialog === "accept", a.promptText ?? null);
   let armed = true;
@@ -1120,6 +1120,15 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const out = await act(tab.id!, a, a.target ?? null, "submitted",
       (loc) => frameCall(tab.id!, loc.frameId, "submitForm", a.target ? loc.target : null));
     return unchangedHint(out, "click on the form's submit button (snapshot -i shows it)");
+  },
+  upload: async (a) => {
+    const tab = await resolveTab(a);
+    const files = Array.isArray(a.files) ? a.files : [];
+    if (!files.length) throw new Error("no files to upload");
+    const drop = !!a.drop;
+    // Without drop the target may be a hidden file input, or the label or button in front of it.
+    return act(tab.id!, a, a.target, drop ? "dropped" : "uploaded",
+      (loc) => frameCall(tab.id!, loc.frameId, "upload", loc.target, files, drop), undefined, drop ? "ready" : "readyUpload");
   },
   scroll: async (a) => {
     const tab = await resolveTab(a);

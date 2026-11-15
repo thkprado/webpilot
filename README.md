@@ -123,9 +123,9 @@ What agents read lives in `docs/`, in English:
 | [docs/reflect.md](docs/reflect.md) | at the end of a session |
 
 The guide's rules keep agents from acting on your accounts without asking: no purchases, messages, deletions,
-setting changes or HTTP writes without your confirmation; your other tabs only when asked; with several browser
-profiles they ask which one to use; they stop on captcha challenges and ask you to sign in instead of typing
-passwords.
+setting changes or HTTP writes without your confirmation; only the files you asked them to upload, to the site you
+named; your other tabs only when asked; with several browser profiles they ask which one to use; they stop on
+captcha challenges and ask you to sign in instead of typing passwords.
 
 ## 3. Site parsers, notes and scripts
 
