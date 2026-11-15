@@ -142,7 +142,7 @@ folder, searched first. Details: [docs/parsers.md](docs/parsers.md).
 
 ## 4. Reflection (end of session)
 
-Every action is logged in `~/.webpilot/sessions/<date>.jsonl`. Typed text is not logged, only its length.
+Every action is logged in `~/.webpilot/sessions/<date>.jsonl`. Typed text is not logged, only its length, and uploaded files only by size.
 
 ```bash
 webpilot reflect-data              # today's session; --days 7, --session NAME, --json

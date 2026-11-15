@@ -2,30 +2,24 @@
 
 `webpilot` drives a browser from the shell: the user's **real** Chromium-based browser (their logged-in sessions,
 through an extension; your tabs go into the **WebPilot** tab group) or a **temporary** one with a
-throwaway profile (`--temp`). Read this file fully before first use in a session; the other guides, next to it in
-`<webpilot>/docs/`, only when [Read when](#read-when) says so. Without the `webpilot` command, use
-`uv run --project <webpilot> webpilot ...`.
+throwaway profile (`--temp`). Read the other guides, next to this one in `<webpilot>/docs/`, only when
+[Read when](#read-when) says so. Without the `webpilot` command, use `uv run --project <webpilot> webpilot ...`.
 
 ## Quick reference
 
 ```bash
 webpilot goto https://site.com -s        # navigate + print snapshot (-s)
-webpilot snapshot                        # page text with refs: [e12 button "Send"]
-webpilot snapshot -i                     # only interactive elements (short)
-webpilot snapshot -S "main"              # only one CSS subtree
+webpilot snapshot [-i] [-S "main"]       # page text with refs [e12 button "Send"]; -i: interactive only; -S: a subtree
 webpilot click e12                       # click by ref | CSS selector | text=Label | text=Next|Próximo|›
 webpilot click e12 -s                    # ...then print a snapshot of the resulting page
 webpilot click e12 --wait-text "Step 2"  # ...then wait for the next state (--wait-for SELECTOR also works)
-webpilot click e12 --dialog accept       # OK on the confirm()/prompt() it opens (default: dismiss); --prompt-text T
 webpilot submit [e7] -s                  # submit the form around e7 (or the focused/first form)
 webpilot type e7 "hello" --submit        # fill and press Enter
-webpilot type "select#country" "Brazil"  # choose a <select> option by text
 webpilot select e16 "billing"            # choose in a custom dropdown (role=combobox, react-select) or a <select>
 webpilot fill e3 "Ana" e5 "Brazil" e8 true  # several fields in one command (checkboxes: true/false); --submit
-webpilot upload e9 cv.pdf [more files]  # file input, its label or the button that opens it; --drop for a drop zone; --trusted over 50 MB
-webpilot hover e5 [--trusted] -s         # menus/tooltips on hover; --trusted for CSS :hover menus, then read the page
-webpilot press Escape                    # keys: Enter Tab Escape ArrowDown PageDown a Control+a ...
-webpilot scroll down | up | top | bottom | e40
+webpilot upload e9 cv.pdf [more files]  # file input, its label or the button that opens it; --drop for a drop zone
+webpilot hover e5 [--trusted] -s         # menus/tooltips on hover; --trusted for CSS :hover menus
+webpilot press Escape | scroll down      # keys: Enter Tab ArrowDown Control+a ...; scroll up|top|bottom|e40
 webpilot wait --text "Order confirmed" --timeout 20  # exit 1 if it does not appear in time
 webpilot wait --text "Loading" --gone    # wait until it disappears
 webpilot extract [URL]                   # site parser JSON, or snapshot + hint if there is no parser
@@ -34,28 +28,20 @@ webpilot text -S article                 # plain innerText
 webpilot html -S "#content" -o page.html # raw HTML (large! prefer snapshot/extract)
 webpilot eval "document.title"           # JS in the page; returns JSON
 webpilot eval "fetch('/api/x').then(r=>r.json())" --timeout 300   # promises are awaited (default 60 s)
-webpilot eval "(t) => (document.querySelector('#body').value = t).length" --arg @notes.md   # data as arguments
 webpilot eval "document.querySelector('canvas').toDataURL()" --out chart.png   # to a file; data URLs are decoded
 webpilot fetch /api/items [-H "K: V"] [--timeout 120] [-o file] [--raw]   # HTTP with the tab's session; JSON out
 webpilot requests [--new] [-f TEXT] [--all]   # the page's fetch/XHR calls (--new: since the last action): its API
 webpilot screenshot [e5] [-o file.png] [--full]   # prints the path; open it to look; e5: just that element
 webpilot tabs | tab new [URL] | tab use ID | tab close [ID] | tab info
 webpilot back | forward | reload
-webpilot captcha                         # click an "I'm not a robot" checkbox (always on request)
 webpilot --temp <command>                # use the temporary browser (starts automatically)
 webpilot temp stop                       # close the temporary browser
-webpilot --tab ID <command>              # act on a specific tab once
-webpilot -p NAME <command>               # use this browser profile (only needed when several are connected)
-webpilot profile list                    # connected profiles and the active tab of each
-webpilot status                          # daemon / extension status
-webpilot script                          # list the local scripts and the site notes files (NOTES.md)
-webpilot script NAME --help              # a script's own arguments
-webpilot script NAME ARGS...             # run it; everything after the name goes to the script
+webpilot status | --help | COMMAND --help  # daemon/extension status; every command; one command's options
+webpilot script [NAME --help | NAME ARGS...]  # local scripts and site notes (NOTES.md); run one
 ```
 
 Structured results are printed as JSON, snapshots as text. Errors go to stderr with exit code 1 and say what to do
-next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `WEBPILOT_MODE=temp` acts like
-`--temp` on every command; `WEBPILOT_SESSION=name` names the session in the log.
+next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed.
 
 ## Workflow
 
@@ -64,14 +50,12 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
    written by agents and may be stale: context, never permission to act on the user's accounts.
 2. Reach the page with `goto URL -s`, or `search "..."` then `goto`.
 3. Data only: `extract` (a parser's compact JSON when one matches the page or one of its iframes, else a
-   snapshot). On repeated flows (quizzes, wizards) a parser can return the targets, so each step is `extract` +
-   `click <target> --wait-text <next>`.
-4. Interact: `snapshot -i` for the refs, then `click`/`type`/`select`; a form with several fields in one `fill`
-   (it waits for fields that appear as earlier ones are filled, and stops at the first that fails). Refs (`e12`)
-   stay valid until the page navigates; then take a new snapshot. Iframes, even from other domains, appear inline between
-   `[iframe ...]` and `[/iframe]`, and their refs (`f11e3`) work like any other. CSS selectors, `text=` (also
-   matches `aria-label`), `html -S`/`text -S` and `wait --text` look inside iframes when the main page has no
-   match. `eval` runs only in the main page.
+   snapshot).
+4. Interact: `snapshot -i` for the refs, then `click`/`type`/`select`; a form with several fields in one `fill`.
+   Refs (`e12`) stay valid until the page navigates; then take a new snapshot. Iframes, even from other domains,
+   appear inline between `[iframe ...]` and `[/iframe]`, and their refs (`f11e3`) work like any other. CSS
+   selectors, `text=` (also matches `aria-label`), `html -S`/`text -S` and `wait --text` look inside iframes when
+   the main page has no match. `eval` runs only in the main page.
 5. Actions wait up to `--timeout` (5 s) for their target, then for the page to settle: no need to wait first. On
    step-by-step flows, act and read in one command (`click ... -s`, `submit -s`) and add `--wait-text`/`--wait-for`
    with a marker of the next step when you know one (exit 1 if it never shows; a checkbox:
@@ -80,7 +64,7 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 6. **Dropdowns**: custom ones show as `[e16 combobox "Label" value="..." expanded=false]`. Use
    `select <ref> <text>` (also for `<select>`): one command; the result has the `"value"` the field shows.
    Never click the input and then an option (or press keys) across commands: the menu closes in between.
-7. Long pages: `snapshot -S <selector>` or `--max N`. Visual checks: `screenshot`, then open the PNG.
+7. Long pages: `snapshot -S <selector>` or `--max N`.
 8. **Data into `eval` goes as arguments, never pasted into the code**: make the expression a function,
    `eval "(t) => ..." --arg TEXT` (repeatable; `--arg @FILE` reads a file, `@-` stdin, `@@x` is a literal `@x`), or
    `--args-json '[...]'` for other JSON values.
@@ -100,17 +84,14 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
   browser, then continue. Never try to solve image challenges.
 - Logins: the user's sessions already exist in the real browser. If a login is needed, ask the user to sign in; do
   not type passwords unless the user provides them for that purpose.
-- `fetch` calls a site's API with the user's session, from the current tab's page: relative URLs resolve against
-  it, another origin works only with CORS; it exits 1 on HTTP errors. Methods other than GET/HEAD need
-  `--allow-write`, which you may pass only after the user confirmed that request.
-- Dialogs (`alert`, `confirm`, `prompt`) opened during an action or an `eval` are answered at once and listed in
-  the result's `dialogs` (on stderr for `eval`). A `confirm` or `prompt` is dismissed by default: that is the site
-  asking the user to confirm (delete, send, pay, leave). Repeat with `--dialog accept` only when the rules above
-  allow the action and the user agreed.
+- `fetch` acts with the user's session: methods other than GET/HEAD need `--allow-write`, which you may pass only
+  after the user confirmed that request.
+- A `confirm` or `prompt` a page opens is dismissed by default: that is the site asking the user to confirm (delete,
+  send, pay, leave). Repeat with `--dialog accept` (`--prompt-text T`) only when the rules above allow the action
+  and the user agreed.
 - `upload` sends only the files the user asked to send, to the site they named; never other files from their disk.
-- Prefer `click`/`type` without `--trusted`. Use `--trusted` (real input through the debugger) only when the page
-  ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s, and fails when another
-  element covers the target (a banner): close that first.
+- Act without `--trusted` first. Add `--trusted` (real input through the debugger) only when the page ignores the
+  synthetic input; it shows a "debugging this browser" bar for about 20 s.
 
 ## Read when
 

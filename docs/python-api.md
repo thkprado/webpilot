@@ -19,45 +19,39 @@ with Browser() as b:                    # Browser("temp") for the temporary brow
 ```
 
 Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is the WebPilot folder, the parent of
-this `docs/` folder).
+this `docs/` folder). `WEBPILOT_MODE=temp` makes `Browser()` (and every CLI command) use the temporary browser;
+`WEBPILOT_SESSION=name` names the session in the log.
 
-- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, fill, upload, hover, press, submit, scroll,
-  wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info,
-  status`.
-- `click`/`type`/`select`/`fill`/`upload`/`hover`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
-  their result has `waited: {"found", "ms"}`. They also take `dialog="accept"` (default: dismiss) and
-  `prompt_text=` for the `alert`/`confirm`/`prompt` the page opens meanwhile; those are listed in the result as
-  `dialogs: [{"type", "message", "answer"}]` (plus `"frame"` inside an iframe). `goto`, `reload`, `back`,
-  `forward` and `close_tab` dismiss dialogs of a loading page and accept a "Leave site?" prompt, listed the same way.
+- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, fill, upload, hover, press,
+  submit, scroll, wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab,
+  close_tab, info, status`.
+- `click`/`type`/`select`/`fill`/`upload`/`hover`/`press`/`submit` take `timeout=`, `wait_text=`,
+  `wait_selector=` and `wait_timeout=`; their result has `waited: {"found", "ms"}`. They also take
+  `dialog="accept"` (default: dismiss) and `prompt_text=` for the dialogs the page opens meanwhile, listed in the
+  result as `dialogs: [{"type", "message", "answer"}]`. `goto`, `reload`, `back`, `forward` and `close_tab`
+  dismiss a loading page's dialogs and accept a "Leave site?" prompt (unsaved input is lost).
 - `fill({target: value, ...}, submit=False)` fills several fields in one command, in order: text fields are typed
   into (replacing their content), a `<select>` or combobox gets the matching option (as `select`), a checkbox, radio
-  or switch is checked with `True` and unchecked with `False` (clicked only when its state differs); a label stands
-  for its field. Each target is waited for, so a field that appears after an earlier one is filled works. The first
-  field that fails raises `WebPilotError` naming it and the fields filled before it. The result has
+  or switch is checked with `True` and unchecked with `False`; a label stands for its field. The first field that
+  fails raises `WebPilotError` naming it and the fields filled before it. The result has
   `"filled": [{"target", "field", "value" | "checked", "option"}]` (`value`: what the field kept; never a password's);
   `submit=True` then submits the last field's form (`"submitted"`).
 - `upload(target, *paths, drop=False, trusted=False)` gives local files to a file input, as the file picker would:
   `target` is the `input[type=file]`, its label, the button that opens it or an element around it (the input may be
-  hidden); a button whose page makes its input in script is clicked, and the picker it opens gets the files (the
-  result then has `"clicked"`). With `drop=True` the files are dropped on `target` (a drop zone). The result has
-  `"uploaded"` (the input) or `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; `trusted=True`
-  has the browser read the files from disk through the debugger, without a limit (not in another site's iframe,
-  not with `drop`). The session log keeps only the sizes.
-- `hover(target, trusted=False)` moves the pointer onto `target` (it may be disabled), for menus and tooltips that
-  open on hover; the result has `"hovered"`. Without `trusted` the mouse events are fired by script, which opens
-  menus run by JavaScript; `changed: False` then comes with a hint to try `trusted=True`, the real pointer through
-  the debugger, which menus opened by CSS `:hover` need. Those change no DOM, so read the page after it.
+  hidden). With `drop=True` the files are dropped on `target` (a drop zone). The result has `"uploaded"` (the input)
+  or `"dropped"`, and `"files": [{"name", "bytes"}]`. Up to 50 MB in all; `trusted=True` has the browser read the
+  files from disk, without a limit (not in another site's iframe, not with `drop`).
+- `hover(target, trusted=False)` moves the pointer onto `target`, for menus and tooltips that open on hover; the
+  result has `"hovered"`. Menus opened by CSS `:hover` need `trusted=True`; read the page after it.
 - `screenshot(path=None, full=False, target=None)` saves a PNG and returns its path: the viewport, the whole page
-  (`full=True`) or one element (`target`, scrolled into view, with 8 px around it), whose image stays legible where
-  a whole page gets scaled down.
+  (`full=True`) or one element (`target`).
 - `wait(selector=None, text=None, timeout=10, gone=False)` returns `{"found", "ms"}` and does not raise on a
   timeout: check `found`.
 - `eval(expression, timeout=60, args=None, dialog=None, prompt_text=None)` awaits promises for up to `timeout`
   seconds. Pass data as `args` (a list of JSON values), never pasted into the code: `expression` must then be a
   function and is called with them, and only their number and size go to the session log. Without `args`,
-  `expression` is an expression, not a function (`args=[]` calls a function with none). Dialogs the page opens
-  meanwhile are answered like an action's (`dialog=`, `prompt_text=`) and kept in `b.last_dialogs`; a dismissed
-  `confirm`/`prompt` also warns (`WebPilotWarning`, with the hint to repeat with `dialog="accept"`).
+  `expression` is an expression, not a function (`args=[]` calls a function with none). Dialogs are answered like an
+  action's (`dialog=`, `prompt_text=`) and kept in `b.last_dialogs`; a dismissed one warns (`WebPilotWarning`).
 
   ```python
   count = b.eval("document.querySelectorAll('.item').length")          # an expression, no args
@@ -65,8 +59,8 @@ this `docs/` folder).
   ```
 - `fetch(url, method="GET", headers=None, data=None, json=None, timeout=120, allow_write=False, raw=False)` returns
   `{"status", "statusText", "url", "headers", "body"}`; `body` is parsed JSON (unless `raw`), text, or bytes for
-  binary content. It does not raise on HTTP errors (the CLI exits 1): check `status`. `allow_write=True` (methods other than GET/HEAD) only after the user
-  confirmed that request.
+  binary content. It does not raise on HTTP errors (the CLI exits 1): check `status`. `allow_write=True` (methods
+  other than GET/HEAD) only after the user confirmed that request.
 
 A script that will be run again belongs in `parsers_user/scripts/` (see [parsers.md](parsers.md)).
 
@@ -80,11 +74,9 @@ To find the API, list what the page asked the server: `webpilot requests` (`b.re
 and XHR calls, oldest first, as `{"url", "status", "ms", "bytes", "contentType"}` (plus `"n"` for a URL called
 several times and `"frame"` for an iframe's calls). `--new` (`new=True`) keeps those after the last action or
 navigation ("which call did that click make?"), `-f TEXT` filters the URLs, `--all` adds images, scripts and styles,
-`--max N` (50) keeps the newest. Then `webpilot fetch URL` to read one answer. It comes from the browser's Resource
-Timing, so: no method, headers or bodies (a POST-only API shows its URL, not what it sent); calls still waiting
-for an answer are not listed; after a redirect the URL is the first one; status 0 is a call that failed (network
-error, refused by CORS) or another origin's answer the page could not read; another origin's sizes are 0 unless it
-sends `Timing-Allow-Origin`. WebPilot's own `fetch` is left out.
+`--max N` (50) keeps the newest. Then `webpilot fetch URL` to read one answer. It lists no method, headers or
+bodies (a POST-only API shows its URL, not what it sent), nor calls still waiting for an answer; status 0 is a call
+that failed or another origin's answer the page could not read.
 
 Example with Grafana querying Loki through its datasource proxy:
 

@@ -146,7 +146,7 @@ outra pasta, procurada primeiro. Detalhes: [docs/parsers.md](docs/parsers.md) (e
 
 ## 4. Reflexão (fim da sessão)
 
-Toda ação é registrada em `~/.webpilot/sessions/<data>.jsonl`. O texto digitado não é registrado, só o tamanho dele.
+Toda ação é registrada em `~/.webpilot/sessions/<data>.jsonl`. O texto digitado não é registrado, só o tamanho dele, e os arquivos enviados só pelo tamanho.
 
 ```bash
 webpilot reflect-data              # sessão de hoje; --days 7, --session NOME, --json
