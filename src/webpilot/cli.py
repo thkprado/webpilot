@@ -470,6 +470,33 @@ def select(
 
 
 @app.command()
+def fill(
+    pairs: list[str] = typer.Argument(..., metavar="TARGET VALUE [TARGET VALUE ...]",
+                                      help="Fields and their values, in order. Checkboxes, radios and switches take "
+                                           "true or false. Put -- before them if a value starts with -."),
+    submit: bool = typer.Option(False, "--submit", help="Submit the last field's form afterwards."),
+    timeout: float = TARGET_TIMEOUT,
+    wait_text: Optional[str] = WAIT_TEXT,
+    wait_for: Optional[str] = WAIT_FOR,
+    wait_timeout: float = WAIT_TIMEOUT,
+    snapshot: bool = SNAP,
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
+):
+    """Fill several fields in one command: text fields, selects, custom dropdowns, checkboxes, radios, switches."""
+    if len(pairs) % 2:
+        raise WebPilotError(f"fill takes pairs of TARGET VALUE; {pairs[-1]!r} has no value")
+    fields: dict[str, str] = {}
+    for target, value in zip(pairs[::2], pairs[1::2]):
+        if target in fields:
+            raise WebPilotError(f"{target} is given twice")
+        fields[target] = value
+    b = browser()
+    act_done(b, b.fill(fields, submit=submit, timeout=timeout, wait_text=wait_text, wait_selector=wait_for,
+                       wait_timeout=wait_timeout, dialog=dialog, prompt_text=prompt_text), snapshot)
+
+
+@app.command()
 def press(
     key: str = typer.Argument(..., help="Enter, Tab, Escape, ArrowDown, PageDown, a, Control+a ..."),
     wait_text: Optional[str] = WAIT_TEXT,

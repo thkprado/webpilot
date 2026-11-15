@@ -358,11 +358,13 @@ class Browser:
     # and prompt_text is what an accepted prompt() gets (default: the prompt's own default value).
 
     def _act(self, cmd: str, timeout: float | None, wait_text: str | None, wait_selector: str | None,
-             wait_timeout: float, dialog: str | None, prompt_text: str | None, **args) -> dict:
+             wait_timeout: float, dialog: str | None, prompt_text: str | None, _targets: int = 1, **args) -> dict:
         if dialog not in (None, "accept", "dismiss"):
             raise WebPilotError(f"dialog must be 'accept' or 'dismiss', not {dialog!r}")
         waiting = wait_text is not None or wait_selector is not None
-        return self.call(cmd, _timeout=60 + (timeout or 5) + (wait_timeout if waiting else 0), timeout=timeout,
+        # Each target may be waited for, plus a few seconds to fill it (fill: a dropdown's options may load late).
+        per_target = (timeout or 5) + (6 if cmd == "fill" else 0)
+        return self.call(cmd, _timeout=60 + per_target * _targets + (wait_timeout if waiting else 0), timeout=timeout,
                          waitText=wait_text, waitSelector=wait_selector,
                          waitTimeout=wait_timeout if waiting else None, dialog=dialog, promptText=prompt_text, **args)
 
@@ -387,6 +389,22 @@ class Browser:
         (its text) and "value" (what the field shows); not choosing raises WebPilotError."""
         return self._act("select", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
                          target=target, text=text)
+
+    def fill(self, fields: dict[str, str | bool], *, submit: bool = False, timeout: float | None = None,
+             wait_text: str | None = None, wait_selector: str | None = None, wait_timeout: float = 10,
+             dialog: str | None = None, prompt_text: str | None = None) -> dict:
+        """Fills several fields in one command, in order: {target: value}. Text fields are typed into (replacing
+        their content), a <select> or combobox gets the option matching the value (as `select`), a checkbox, radio or
+        switch is checked with True (or "true") and unchecked with False, clicked only when its state differs.
+        Each target is waited for, so a field that appears after an earlier one is filled works. Stops at the
+        first field that fails (WebPilotError naming it and those filled before it). The result has "filled"
+        ([{target, field, value or checked}]); submit=True then submits the last field's form ("submitted")."""
+        if not fields:
+            raise WebPilotError("no fields to fill")
+        pairs = [{"target": t, "value": ("true" if v else "false") if isinstance(v, bool) else str(v)}
+                 for t, v in fields.items()]
+        return self._act("fill", timeout, wait_text, wait_selector, wait_timeout, dialog, prompt_text,
+                         _targets=len(pairs), fields=pairs, submit=submit or None)
 
     def press(self, key: str, *, wait_text: str | None = None, wait_selector: str | None = None,
               wait_timeout: float = 10, dialog: str | None = None, prompt_text: str | None = None) -> dict:

@@ -21,14 +21,21 @@ with Browser() as b:                    # Browser("temp") for the temporary brow
 Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is the WebPilot folder, the parent of
 this `docs/` folder).
 
-- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, upload, hover, press, submit, scroll,
+- Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, fill, upload, hover, press, submit, scroll,
   wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab, close_tab, info,
   status`.
-- `click`/`type`/`select`/`upload`/`hover`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
+- `click`/`type`/`select`/`fill`/`upload`/`hover`/`press`/`submit` take `timeout=`, `wait_text=`, `wait_selector=` and `wait_timeout=`;
   their result has `waited: {"found", "ms"}`. They also take `dialog="accept"` (default: dismiss) and
   `prompt_text=` for the `alert`/`confirm`/`prompt` the page opens meanwhile; those are listed in the result as
   `dialogs: [{"type", "message", "answer"}]` (plus `"frame"` inside an iframe). `goto`, `reload`, `back`,
   `forward` and `close_tab` dismiss dialogs of a loading page and accept a "Leave site?" prompt, listed the same way.
+- `fill({target: value, ...}, submit=False)` fills several fields in one command, in order: text fields are typed
+  into (replacing their content), a `<select>` or combobox gets the matching option (as `select`), a checkbox, radio
+  or switch is checked with `True` and unchecked with `False` (clicked only when its state differs); a label stands
+  for its field. Each target is waited for, so a field that appears after an earlier one is filled works. The first
+  field that fails raises `WebPilotError` naming it and the fields filled before it. The result has
+  `"filled": [{"target", "field", "value" | "checked", "option"}]` (`value`: what the field kept; never a password's);
+  `submit=True` then submits the last field's form (`"submitted"`).
 - `upload(target, *paths, drop=False)` gives local files to a file input, as the file picker would: `target` is the
   `input[type=file]`, its label, the button that opens it or an element around it (the input may be hidden); with
   `drop=True` the files are dropped on `target` (a drop zone). The result has `"uploaded"` (the input) or

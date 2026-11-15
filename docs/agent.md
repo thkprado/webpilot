@@ -21,6 +21,7 @@ webpilot submit [e7] -s                  # submit the form around e7 (or the foc
 webpilot type e7 "hello" --submit        # fill and press Enter
 webpilot type "select#country" "Brazil"  # choose a <select> option by text
 webpilot select e16 "billing"            # choose in a custom dropdown (role=combobox, react-select) or a <select>
+webpilot fill e3 "Ana" e5 "Brazil" e8 true  # several fields in one command (checkboxes: true/false); --submit
 webpilot upload e9 cv.pdf [more files]  # file input, its label or the button in front of it; --drop for a drop zone
 webpilot hover e5 [--trusted] -s         # menus/tooltips on hover; --trusted for CSS :hover menus, then read the page
 webpilot press Escape                    # keys: Enter Tab Escape ArrowDown PageDown a Control+a ...
@@ -65,8 +66,9 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 3. Data only: `extract` (a parser's compact JSON when one matches the page or one of its iframes, else a
    snapshot). On repeated flows (quizzes, wizards) a parser can return the targets, so each step is `extract` +
    `click <target> --wait-text <next>`.
-4. Interact: `snapshot -i` for the refs, then `click`/`type`/`select`. Refs (`e12`) stay valid until the page
-   navigates; then take a new snapshot. Iframes, even from other domains, appear inline between
+4. Interact: `snapshot -i` for the refs, then `click`/`type`/`select`; a form with several fields in one `fill`
+   (it waits for fields that appear as earlier ones are filled, and stops at the first that fails). Refs (`e12`)
+   stay valid until the page navigates; then take a new snapshot. Iframes, even from other domains, appear inline between
    `[iframe ...]` and `[/iframe]`, and their refs (`f11e3`) work like any other. CSS selectors, `text=` (also
    matches `aria-label`), `html -S`/`text -S` and `wait --text` look inside iframes when the main page has no
    match. `eval` runs only in the main page.

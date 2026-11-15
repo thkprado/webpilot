@@ -202,10 +202,10 @@ function waitForLoad(tabId: number, timeoutMs = 30000): Promise<boolean> {
 }
 
 /** Waits until the DOM has had no mutations for quietMs (AJAX updates never change the tab status). */
-async function domIdle(tabId: number, quietMs: number, capMs: number) {
+async function domIdle(tabId: number, quietMs: number, capMs: number, frameId = 0) {
   const end = Date.now() + capMs;
   while (Date.now() < end) {
-    try { if ((await pageCall(tabId, "idle")).sinceMs >= quietMs) return; } catch (e) { rethrowBlocked(e); /* navigating */ }
+    try { if ((await frameCall(tabId, frameId, "idle")).sinceMs >= quietMs) return; } catch (e) { rethrowBlocked(e); /* navigating */ }
     await sleep(100);
   }
 }
@@ -1142,6 +1142,40 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     // Without drop the target may be a hidden file input, or the label or button in front of it.
     return act(tab.id!, a, a.target, drop ? "dropped" : "uploaded",
       (loc) => frameCall(tab.id!, loc.frameId, "upload", loc.target, files, drop), undefined, drop ? "ready" : "readyUpload");
+  },
+  fill: async (a) => {
+    const tab = await resolveTab(a);
+    const fields: { target: string; value: string }[] = Array.isArray(a.fields) ? a.fields : [];
+    if (!fields.length) throw new Error("no fields to fill");
+    const timeoutMs = (a.timeout ?? 5) * 1000;
+    return act(tab.id!, a, null, "filled", async () => {
+      const count = await armCount(tab.id!);
+      const filled: Record<string, unknown>[] = [];
+      let toggled = false;
+      let last: Loc | null = null;
+      for (const [i, f] of fields.entries()) {
+        const target = String(f.target);
+        try {
+          // Let what the previous field set off render (a field that appears, options that load).
+          if (last) await domIdle(tab.id!, 150, 1500, last.frameId);
+          const loc = await waitTarget(tab.id!, target, timeoutMs);
+          const r = await frameCall(tab.id!, loc.frameId, "fillField", loc.target, String(f.value));
+          filled.push({ target, ...r.extra, ...(r.reresolved || loc.reresolved ? { reresolved: true } : {}) });
+          toggled ||= !!r.toggled;
+          last = loc;
+        } catch (e: any) {
+          const before = filled.length ? `filled before it: ${filled.map((x) => x.target).join(", ")}` : "nothing filled";
+          const msg = `field ${i + 1} (${target}): ${e?.message ?? e}; ${before}`;
+          throw e instanceof PageBlocked ? new PageBlocked(msg) : new Error(msg);
+        }
+      }
+      let submitted: string | undefined;
+      if (a.submit) {
+        const s = await frameCall(tab.id!, last!.frameId, "submitForm", last!.target);
+        submitted = s.desc;
+      }
+      return { count, toggled, extra: { filled, ...(submitted ? { submitted } : {}) } };
+    });
   },
   hover: async (a) => {
     const tab = await resolveTab(a);

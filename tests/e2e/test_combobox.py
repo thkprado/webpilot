@@ -63,3 +63,16 @@ def test_select_of_a_missing_option_lists_the_options(page):
         page.select("#field-country", "Atlantis")  # typed text matched nothing: the full list is shown
     assert state(page)["plan"] is None and state(page)["country"] is None
     assert page.eval("!!document.querySelector('.react-select__menu')") is False
+
+
+def test_fill_chooses_in_several_dropdowns_at_once(page):
+    res = page.fill({"#field-country": "Peru", "#field-plan-label + div": "Teams", "#native": "Pro",
+                     "#field-topic": "Security"})
+    assert [(f["target"], f["option"]) for f in res["filled"]] == [
+        ("#field-country", "Peru"), ("#field-plan-label + div", "Teams"), ("#native", "Pro"),
+        ("#field-topic", "Security")]
+    assert all(f["option"] in f["value"] for f in res["filled"])
+    assert {k: state(page)[k] for k in ("country", "plan", "topic")} == {
+        "country": "Peru", "plan": "Teams", "topic": "Security"}
+    assert changes(page) == [("country", "Peru"), ("plan", "Teams"), ("topic", "Security")]
+    assert page.eval("document.getElementById('native').value") == "v1"

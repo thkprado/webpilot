@@ -46,6 +46,10 @@ def _clean_args(args: dict) -> dict:
     for k, v in args.items():
         if k in SECRET_ARGS and isinstance(v, str):
             out[k] = f"<{len(v)} chars>"
+        elif k == "fields" and isinstance(v, list):
+            # fill: the targets, and each value only by length (it may be a password)
+            out[k] = [{"target": f.get("target"), "value": f"<{len(str(f.get('value', '')))} chars>"}
+                      if isinstance(f, dict) else None for f in v]
         elif k == "args" and isinstance(v, list):
             # eval arguments are page data (often typed text): only their number and size
             out[k] = f"<{len(v)} values, {len(json.dumps(v, ensure_ascii=False))} chars>"

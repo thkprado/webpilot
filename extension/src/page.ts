@@ -628,6 +628,10 @@ function focus(target: string, selectAll: boolean) {
 function type(target: string, text: string, clear: boolean) {
   const el = find(target);
   if ("error" in el) return el;
+  return typeInto(el, text, clear);
+}
+
+function typeInto(el: Element, text: string, clear: boolean) {
   const { count } = arm();
   const h = el as HTMLElement;
   h.scrollIntoView({ block: "center", behavior: "instant" });
@@ -783,6 +787,11 @@ function key(el: Element, k: "ArrowDown" | "ArrowUp" | "Enter" | "Escape") {
 async function choose(target: string, text: string) {
   const el = find(target);
   if ("error" in el) return el;
+  return chooseIn(el, text);
+}
+
+/** choose() on an element; with freeText, an editable combobox that opens no list keeps the typed text. */
+async function chooseIn(el: Element, text: string, freeText = false) {
   const again = reresolved;
   const { count } = arm();
   if (el instanceof HTMLSelectElement) {
@@ -834,6 +843,11 @@ async function choose(target: string, text: string) {
   }, 3000);
   if (!opt) {
     if (!listboxOf(nodes, before)) {
+      if (freeText && editable) {
+        // An autocomplete with nothing to suggest: the typed text is the value.
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        return { desc: short(box), count, reresolved: again, extra: { value: clean((field as HTMLInputElement).value, 100) } };
+      }
       return { error: `no list of options opened for ${short(box)}: not a listbox-style dropdown; click it, then snapshot -i` };
     }
     if (editable && !labels.length) {
@@ -877,6 +891,76 @@ async function choose(target: string, text: string) {
   const value = await until(chosen, 1500);
   if (!value) return { error: `did not choose "${option}": the field shows "${comboValue(field)}"` };
   return { desc: short(box), count, reresolved: again, extra: { selected: true, option, value } };
+}
+
+const TOGGLE_ROLES = new Set(["checkbox", "radio", "switch", "menuitemcheckbox", "menuitemradio"]);
+const NOT_TEXT = /^(checkbox|radio|submit|button|reset|file|image|hidden)$/;
+
+/** Whether a checkbox, radio or switch is on: its `checked`, else its aria-checked. */
+function isOn(el: Element): boolean {
+  if (el instanceof HTMLInputElement) return el.checked;
+  return el.getAttribute("aria-checked") === "true";
+}
+
+/**
+ * One field of `fill`: types into a text field, chooses an option in a <select> or combobox, or checks or unchecks
+ * a checkbox, radio or switch ("true"/"false"), clicking only when its state differs. A label stands for its field.
+ * Returns what the field holds afterwards, in `extra`.
+ */
+async function fillField(target: string, value: string) {
+  const found = find(target);
+  if ("error" in found) return found;
+  const again = reresolved;
+  const el = found instanceof HTMLLabelElement && found.control ? found.control : found;
+  const role = el.getAttribute("role") || "";
+  const input = el instanceof HTMLInputElement ? el : null;
+  if (input?.type === "file") return { error: `${short(el)} is a file input: use upload ${target} FILE` };
+  if ((input || el instanceof HTMLTextAreaElement) && (el as HTMLInputElement).readOnly && role !== "combobox") {
+    return { error: `${short(el)} is read-only` };
+  }
+
+  if (input?.type === "checkbox" || input?.type === "radio" || TOGGLE_ROLES.has(role)) {
+    const kind = input ? input.type : role;
+    const want = value.trim().toLowerCase();
+    if (want !== "true" && want !== "false") return { error: `a ${kind} takes true or false, not ${JSON.stringify(value)}` };
+    const on = want === "true";
+    const { count } = arm();
+    const desc = short(el);
+    if (isOn(el) === on) return { desc, count, reresolved: again, extra: { field: desc, checked: on } };
+    if (!on && (kind === "radio" || kind === "menuitemradio")) {
+      return { error: `${desc} is checked; a radio button is unchecked by checking another one of its group (true)` };
+    }
+    // Through a visible label, like click: some sites only react to label clicks.
+    const lbl = input ? Array.from(input.labels || []).find(isVisible) : undefined;
+    fireClick((lbl || el) as HTMLElement);
+    // A custom switch may re-render: then read the element the target names now.
+    const now = () => {
+      const e = el.isConnected ? el : find(target);
+      return !("error" in e) && isOn(e) === on;
+    };
+    if (!(await until(now, 1000))) return { error: `clicking ${desc} did not ${on ? "check" : "uncheck"} it; try click --trusted` };
+    return { desc, count, reresolved: again, toggled: true, extra: { field: desc, checked: on } };
+  }
+
+  const editable = (!!input && !NOT_TEXT.test(input.type)) || el instanceof HTMLTextAreaElement || (el as HTMLElement).isContentEditable;
+  if (el instanceof HTMLSelectElement || role === "combobox" || (!editable && el.querySelector("[role=combobox]"))) {
+    const r: any = await chooseIn(el, value, true);
+    if (r.error) return r;
+    const { selected, ...shown } = r.extra;
+    return { ...r, extra: { field: r.desc, ...shown } };
+  }
+  if (!editable) {
+    return {
+      error: `${short(el)} is not a form field: fill takes text fields, selects, comboboxes, checkboxes, radios and ` +
+        "switches (click buttons and links)",
+    };
+  }
+  const r: any = typeInto(el, value, true);
+  if (r.error) return r;
+  // What the field kept (a mask or maxlength may change it); never a password's.
+  const now = input || el instanceof HTMLTextAreaElement ? (el as HTMLInputElement).value : (el as HTMLElement).innerText;
+  const extra = input?.type === "password" ? {} : { value: clean(now, 200) };
+  return { ...r, reresolved: again, extra: { field: r.desc, ...extra } };
 }
 
 /** Submits the target's form (or the focused / first visible form) the way a submit button would. */
@@ -1043,4 +1127,5 @@ function requests(all: boolean, filter: string | null, since: number | null) {
 w.__wp = {
   frameInfo, frameOffset, snapshot, locate, click, focus, type, scroll, check, html, text, findCaptcha, arm, idle, ready,
   submitForm, choose, watchOption, optionResult, visibility, readyUpload, upload, requests, shown, hover,
+  fillField,
 };
