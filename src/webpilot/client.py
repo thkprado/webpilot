@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 import uuid
+import warnings
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,10 @@ EXTENSION_WAIT = {"real": 40.0, "temp": 60.0}
 
 class WebPilotError(RuntimeError):
     pass
+
+
+class WebPilotWarning(UserWarning):
+    """Something to know about a command that succeeded, such as a confirm that eval dismissed."""
 
 
 def start_daemon() -> None:
@@ -184,6 +189,7 @@ class Browser:
         if self.mode == "temp":
             self.profile = None
         self._conn: Connection | None = None
+        self.last_dialogs: list[dict] = []  # answered during the last eval
 
     # ------------------------------------------------------------ plumbing
 
@@ -225,12 +231,15 @@ class Browser:
                 if error:
                     entry["error"] = error[:300]
                 if cmd == "eval":
-                    # The result is whatever the page's code returned, not a command result: fields
+                    # result["value"] is whatever the page's code returned, not a command result: fields
                     # such as `url` or `body` in it are data. Only its size is logged.
-                    if error is None:
-                        entry["out_chars"] = _out_chars(result)
-                        if isinstance(result, str) and result.startswith("data:"):  # the type only, never the content
-                            entry["data_url"] = result[5:105].split(",", 1)[0].split(";")[0] or "text/plain"
+                    if error is None and isinstance(result, dict):
+                        value = result.get("value")
+                        entry["out_chars"] = _out_chars(value)
+                        if isinstance(value, str) and value.startswith("data:"):  # the type only, never the content
+                            entry["data_url"] = value[5:105].split(",", 1)[0].split(";")[0] or "text/plain"
+                        if result.get("dialogs"):  # the types only, as for actions
+                            entry["dialogs"] = [d.get("type") for d in result["dialogs"]]
                 elif isinstance(result, dict):
                     if result.get("url"):
                         entry["url"] = result["url"]
@@ -320,14 +329,32 @@ class Browser:
         return path.resolve()
 
     def eval(self, expression: str, timeout: float = 60, args: list | tuple | None = None,
-             _log: dict | None = None) -> Any:
+             dialog: str | None = None, prompt_text: str | None = None, _log: dict | None = None) -> Any:
         """Evaluate JavaScript in the page; promises are awaited for up to `timeout` seconds.
 
         With `args`, `expression` must be a function, and it is called with those values:
         `eval("(text) => (document.querySelector('textarea').value = text)", args=[body])`.
-        The values travel as JSON, separately from the code, so they need no escaping."""
-        return self.call("eval", _timeout=timeout, _log=_log, expression=expression,
-                         args=list(args) if args is not None else None)
+        The values travel as JSON, separately from the code, so they need no escaping.
+
+        alert/confirm/prompt opened meanwhile are answered as in actions (`dialog`, `prompt_text`) and kept in
+        `self.last_dialogs`; a dismissed confirm or prompt also warns (WebPilotWarning) with the hint."""
+        res = self._eval(expression, timeout, args, dialog, prompt_text, _log)
+        if res.get("hint"):
+            warnings.warn(res["hint"], WebPilotWarning, stacklevel=2)
+        return res["value"]
+
+    def _eval(self, expression: str, timeout: float, args: list | tuple | None, dialog: str | None,
+              prompt_text: str | None, _log: dict | None) -> dict:
+        """eval's whole result: {"value", "dialogs"?, "hint"?}."""
+        if dialog not in (None, "accept", "dismiss"):
+            raise WebPilotError(f"dialog must be 'accept' or 'dismiss', not {dialog!r}")
+        res = self.call("eval", _timeout=timeout, _log=_log, expression=expression,
+                        args=list(args) if args is not None else None, dialog=dialog, promptText=prompt_text)
+        if not isinstance(res, dict) or "value" not in res:
+            raise WebPilotError("the browser extension is older than this WebPilot: reload it on the browser's "
+                                "extensions page")
+        self.last_dialogs = res.get("dialogs") or []
+        return res
 
     def fetch(self, url: str, method: str = "GET", headers: dict[str, str] | None = None, data: str | None = None,
               json: Any = None, timeout: float = 120, allow_write: bool = False, raw: bool = False,

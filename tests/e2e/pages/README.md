@@ -20,7 +20,8 @@ origins). One concern each, plain HTML and JS, no build step. Handlers record wh
 - `covered.html`: a button under a fixed cookie banner (its "Accept" removes it), a custom checkbox (a
   transparent input under a drawn box) and `spin(ms)`, an overlay that goes away after `ms`, for `click --trusted`.
 - `dialogs.html`: buttons calling `alert`, `confirm` and `prompt` that log the outcome, the same page as an iframe
-  (`?child=1`, posting to the parent; `?noframe=1` leaves it out), `?onload=1` (an `alert` in an inline script while
+  (`?child=1`, posting to the parent and clicking the button a `{click: id}` message names; `?noframe=1` leaves
+  it out), a link to `?onload=1&noframe=1`, `?onload=1` (an `alert` in an inline script while
   loading) and `?beforeunload=1` (asks before leaving, once the page had a user gesture).
 - `upload.html`: file inputs that show what they received (name, size, type, SHA-256, text): a visible one, a hidden
   one behind a label and one behind a button, a `multiple` one, a form with two (ambiguous), a drop zone, a `div`

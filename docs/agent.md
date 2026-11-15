@@ -103,9 +103,10 @@ next. Brackets (`[URL]`, `[-o file]`) mark optional parts; they are not typed. `
 - `fetch` calls a site's API with the user's session, from the current tab's page: relative URLs resolve against
   it, another origin works only with CORS; it exits 1 on HTTP errors. Methods other than GET/HEAD need
   `--allow-write`, which you may pass only after the user confirmed that request.
-- Dialogs (`alert`, `confirm`, `prompt`) opened during an action are answered at once and listed in the result's
-  `dialogs`. A `confirm` or `prompt` is dismissed by default: that is the site asking the user to confirm (delete,
-  send, pay, leave). Repeat with `--dialog accept` only when the rules above allow the action and the user agreed.
+- Dialogs (`alert`, `confirm`, `prompt`) opened during an action or an `eval` are answered at once and listed in
+  the result's `dialogs` (on stderr for `eval`). A `confirm` or `prompt` is dismissed by default: that is the site
+  asking the user to confirm (delete, send, pay, leave). Repeat with `--dialog accept` only when the rules above
+  allow the action and the user agreed.
 - `upload` sends only the files the user asked to send, to the site they named; never other files from their disk.
 - Prefer `click`/`type` without `--trusted`. Use `--trusted` (real input through the debugger) only when the page
   ignores the synthetic click; it shows a "debugging this browser" bar for about 20 s, and fails when another

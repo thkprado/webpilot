@@ -18,7 +18,11 @@
     document.getElementById("out").textContent = text;
     if (child) parent.postMessage({ dialogs: text }, "*");
   }
-  addEventListener("message", (e) => { if (e.data?.dialogs) window.__log.push("child " + e.data.dialogs); });
+  addEventListener("message", (e) => {
+    if (e.data?.dialogs) window.__log.push("child " + e.data.dialogs);
+    // {click: "confirm"} from the parent: the child clicks that button (a cross-site parent cannot reach it).
+    if (child && e.data?.click) document.getElementById(e.data.click).click();
+  });
 </script>
 </head>
 <body>
@@ -26,6 +30,7 @@
 <button id="alert" onclick="alert('Saved'); show('alert done')">Alert</button>
 <button id="confirm" onclick="show(confirm('Delete the item?') ? 'deleted' : 'kept')">Delete</button>
 <button id="prompt" onclick="const n = prompt('Your name?', 'Anonymous'); show(n === null ? 'no name' : 'name: ' + n)">Name</button>
+<a id="reopen" href="dialogs.html?onload=1&amp;noframe=1">Reopen with a welcome</a>
 <p id="out"></p>
 <script>
   if (child) {

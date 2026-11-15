@@ -38,11 +38,14 @@ def fake_extension(port: int, token: str, mode: str = "real", origin: str = "chr
                 threading.Event().wait(delay)
                 if msg["cmd"] == "fail":
                     ws.send(json.dumps({"id": msg["id"], "ok": False, "error": "boom"}))
-                elif results and msg["cmd"] in results:
-                    ws.send(json.dumps({"id": msg["id"], "ok": True, "result": results[msg["cmd"]]}))
                 else:
-                    ws.send(json.dumps({"id": msg["id"], "ok": True, "result": {
-                        "cmd": msg["cmd"], "args": msg["args"], "url": "https://x.test/", "profile": profile}}))
+                    if results and msg["cmd"] in results:
+                        result = results[msg["cmd"]]
+                    else:
+                        result = {"cmd": msg["cmd"], "args": msg["args"], "url": "https://x.test/", "profile": profile}
+                    if msg["cmd"] == "eval":  # the page's value apart from WebPilot's fields, as the extension does
+                        result = {"value": result}
+                    ws.send(json.dumps({"id": msg["id"], "ok": True, "result": result}))
         except Exception:
             pass
 

@@ -49,10 +49,12 @@ this `docs/` folder).
   a whole page gets scaled down.
 - `wait(selector=None, text=None, timeout=10, gone=False)` returns `{"found", "ms"}` and does not raise on a
   timeout: check `found`.
-- `eval(expression, timeout=60, args=None)` awaits promises for up to `timeout` seconds. Pass data as `args` (a list
-  of JSON values), never pasted into the code: `expression` must then be a function and is called with them, and
-  only their number and size go to the session log. Without `args`, `expression` is an expression, not a function
-  (`args=[]` calls a function with none).
+- `eval(expression, timeout=60, args=None, dialog=None, prompt_text=None)` awaits promises for up to `timeout`
+  seconds. Pass data as `args` (a list of JSON values), never pasted into the code: `expression` must then be a
+  function and is called with them, and only their number and size go to the session log. Without `args`,
+  `expression` is an expression, not a function (`args=[]` calls a function with none). Dialogs the page opens
+  meanwhile are answered like an action's (`dialog=`, `prompt_text=`) and kept in `b.last_dialogs`; a dismissed
+  `confirm`/`prompt` also warns (`WebPilotWarning`, with the hint to repeat with `dialog="accept"`).
 
   ```python
   count = b.eval("document.querySelectorAll('.item').length")          # an expression, no args

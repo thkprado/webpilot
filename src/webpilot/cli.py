@@ -296,6 +296,11 @@ def read_value(value: str) -> str:
     return value
 
 
+DIALOG = typer.Option(None, "--dialog", help="Answer to alert/confirm/prompt the page opens: dismiss (default) or "
+                      "accept (only for what the user agreed to).")
+PROMPT_TEXT = typer.Option(None, "--prompt-text", help="What an accepted prompt() gets (default: its own default).")
+
+
 @app.command("eval")
 def eval_(
     expression: str,
@@ -308,6 +313,8 @@ def eval_(
     output: Optional[str] = typer.Option(None, "--out", "-o",
                                          help="Write the result to a file: a base64 data URL is decoded, other "
                                               "strings are written as text, other values as JSON."),
+    dialog: Optional[str] = DIALOG,
+    prompt_text: Optional[str] = PROMPT_TEXT,
 ):
     """Evaluate JavaScript in the page (CSP-proof; promises are awaited). Prints the JSON result.
 
@@ -324,7 +331,10 @@ def eval_(
     elif arg:
         values = [read_value(a) for a in arg]
     # Saved to a file, the result is not read by the agent (like `html -o`).
-    res = browser().eval(expression, timeout=timeout, args=values, _log={"purpose": "save"} if output else None)
+    full = browser()._eval(expression, timeout, values, dialog, prompt_text, {"purpose": "save"} if output else None)
+    res = full["value"]
+    if full.get("dialogs"):  # stderr: stdout is the page's value alone, for scripts that parse it
+        print(json.dumps({k: full[k] for k in ("dialogs", "hint") if k in full}, ensure_ascii=False), file=sys.stderr)
     if not output:
         out(res)
         return
@@ -396,9 +406,6 @@ WAIT_FOR = typer.Option(None, "--wait-for", help="Afterwards, wait until this CS
 WAIT_TIMEOUT = typer.Option(10, "--wait-timeout", help="Seconds for --wait-text/--wait-for.")
 TARGET_TIMEOUT = typer.Option(5, "--timeout", help="Seconds to wait for the target to appear and be enabled.")
 SNAP = typer.Option(False, "--snapshot", "-s", help="Print a snapshot afterwards.")
-DIALOG = typer.Option(None, "--dialog", help="Answer to alert/confirm/prompt the page opens: dismiss (default) or "
-                      "accept (only for what the user agreed to).")
-PROMPT_TEXT = typer.Option(None, "--prompt-text", help="What an accepted prompt() gets (default: its own default).")
 
 
 def act_done(b: Browser, res: dict, snapshot: bool, max_chars: int = 15000) -> None:

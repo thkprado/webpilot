@@ -377,9 +377,7 @@ async function act(
   tabId: number, a: Args, target: string | null, key: string, run: (loc: Loc) => Promise<ActResult>,
   after?: () => Promise<Record<string, unknown>>, check = "ready",
 ) {
-  if (a.dialog !== undefined && a.dialog !== "accept" && a.dialog !== "dismiss") {
-    throw new Error(`dialog must be accept or dismiss, not ${JSON.stringify(a.dialog)}`);
-  }
+  checkDialogArg(a);
   const found = target ? await waitTarget(tabId, target, (a.timeout ?? 5) * 1000, check) : { frameId: 0, target: "", reresolved: false };
   const url = (await chrome.tabs.get(tabId)).url;
   await armDialogs(tabId, a.dialog === "accept", a.promptText ?? null);
@@ -387,41 +385,44 @@ async function act(
   const net = watchNetwork(tabId);
   await markAction(tabId);
   try {
-    const r = await answering(tabId, [found.frameId], run(found));
-    const marker = !!(a.waitText || a.waitSelector);
-    const { navigated, busy } = await settle(tabId, net, found.frameId, marker ? 1500 : 5000);
-    await checkLanded(tabId);
-    const late = after ? await after() : {};
-    const info = await tabInfo(tabId);
-    let count = r.count;
-    let frameUrl: string | undefined;
-    try {
-      const s = await frameCall(tabId, found.frameId, "idle");
-      count = s.count;
-      if (found.frameId !== 0) frameUrl = s.url;
-    } catch (e) { rethrowBlocked(e); /* restricted page */ }
-    const out: any = {
-      ...(r.desc ? { [key]: r.desc } : {}),
-      ...r.extra,
-      ...late,
-      ...(found.reresolved || r.reresolved ? { reresolved: true } : {}),
-      changed: navigated || !!r.toggled || info.url !== url || count > r.count,
-      ...(busy ? { busy } : {}),
-      ...info,
-      ...(frameUrl ? { frameUrl } : {}),
-    };
-    if (a.waitText || a.waitSelector) {
-      out.waited = await waitFor(tabId, a.waitSelector ?? null, a.waitText ?? null, (a.waitTimeout ?? 10) * 1000);
-      // The marker can show before the rest of the step (AJAX players): let aria-busy regions finish.
-      if (out.waited.found) await waitNotBusy(tabId, 3000);
-    }
-    armed = false;
-    const dialogs = await takeDialogs(tabId);
-    if (dialogs.length) {
-      out.dialogs = dialogs;
-      if (dialogs.some((d) => d.type !== "alert" && (d.answer === false || d.answer === null))) out.hint = DISMISSED;
-    }
-    return out;
+    // A page of the same site that the action opens (a link, a form) gets the shim before its inline scripts.
+    return await withLoadShim(url, async () => {
+      const r = await answering(tabId, [found.frameId], run(found));
+      const marker = !!(a.waitText || a.waitSelector);
+      const { navigated, busy } = await settle(tabId, net, found.frameId, marker ? 1500 : 5000);
+      await checkLanded(tabId);
+      const late = after ? await after() : {};
+      const info = await tabInfo(tabId);
+      let count = r.count;
+      let frameUrl: string | undefined;
+      try {
+        const s = await frameCall(tabId, found.frameId, "idle");
+        count = s.count;
+        if (found.frameId !== 0) frameUrl = s.url;
+      } catch (e) { rethrowBlocked(e); /* restricted page */ }
+      const out: any = {
+        ...(r.desc ? { [key]: r.desc } : {}),
+        ...r.extra,
+        ...late,
+        ...(found.reresolved || r.reresolved ? { reresolved: true } : {}),
+        changed: navigated || !!r.toggled || info.url !== url || count > r.count,
+        ...(busy ? { busy } : {}),
+        ...info,
+        ...(frameUrl ? { frameUrl } : {}),
+      };
+      if (a.waitText || a.waitSelector) {
+        out.waited = await waitFor(tabId, a.waitSelector ?? null, a.waitText ?? null, (a.waitTimeout ?? 10) * 1000);
+        // The marker can show before the rest of the step (AJAX players): let aria-busy regions finish.
+        if (out.waited.found) await waitNotBusy(tabId, 3000);
+      }
+      armed = false;
+      const dialogs = await takeDialogs(tabId);
+      if (dialogs.length) {
+        out.dialogs = dialogs;
+        if (anyDismissed(dialogs)) out.hint = DISMISSED;
+      }
+      return out;
+    });
   } catch (e) {
     if (e instanceof PageBlocked) armed = false; // nothing more runs in that page
     throw e;
@@ -718,6 +719,49 @@ async function acceptUnload(tabId: number, out: Dialog[]): Promise<() => Promise
   };
 }
 
+/**
+ * For commands that go through the debugger anyway (eval): answers the tab's dialogs natively while fn runs, by
+ * the policy of --dialog/--prompt-text, and reports them in `out`. No race with the page and nothing for it
+ * to see, unlike the shim. beforeunload is accepted, as in navigate(): the expression asked to leave.
+ */
+async function answerNatively<T>(tabId: number, accept: boolean, text: string | null, out: Dialog[],
+                                 fn: () => Promise<T>): Promise<T> {
+  const previous = dialogHandlers.get(tabId); // a navigation's acceptUnload in the same tab
+  dialogHandlers.set(tabId, (p) => {
+    const type = String(p.type);
+    let answer: unknown = null;
+    let ok = accept;
+    if (type === "alert" || type === "beforeunload") ok = true;
+    if (type === "confirm" || type === "beforeunload") answer = ok;
+    if (type === "prompt" && ok) answer = text ?? String(p.defaultPrompt ?? "");
+    out.push({ type, message: String(p.message ?? "").slice(0, 300), answer });
+    cdp(tabId, "Page.handleJavaScriptDialog", { accept: ok, ...(type === "prompt" && ok ? { promptText: answer } : {}) })
+      .catch(() => {});
+  });
+  try {
+    // Hangs when a dialog is already open (Page.enable must come first): the not-answering check then fails it.
+    if (!previous) await answering(tabId, [0], cdp(tabId, "Page.enable"));
+    return await fn();
+  } finally {
+    if (previous) dialogHandlers.set(tabId, previous);
+    else {
+      dialogHandlers.delete(tabId);
+      await cdp(tabId, "Page.disable").catch(() => {});
+    }
+  }
+}
+
+/** --dialog: accept or dismiss (the default). */
+function checkDialogArg(a: Args) {
+  if (a.dialog !== undefined && a.dialog !== "accept" && a.dialog !== "dismiss") {
+    throw new Error(`dialog must be accept or dismiss, not ${JSON.stringify(a.dialog)}`);
+  }
+}
+
+/** A confirm or prompt that was dismissed: the page asked, and the agent may need to ask the user. */
+const anyDismissed = (dialogs: Dialog[]) =>
+  dialogs.some((d) => (d.type === "confirm" || d.type === "prompt") && (d.answer === false || d.answer === null));
+
 const DISMISSED = "the page asked for confirmation and it was dismissed; if the user agreed to this, repeat with " +
   "--dialog accept";
 
@@ -972,6 +1016,39 @@ async function autoCaptcha(tabId: number) {
   } catch {
     return undefined;
   }
+}
+
+/** `eval`: the expression's value in the tab's main frame, through the debugger (so CSP does not apply). */
+async function evaluate(tabId: number, a: Args) {
+  const source = String(a.expression);
+  let r;
+  if (Array.isArray(a.args)) {
+    // The expression is a function; the arguments travel as JSON values, never as code.
+    const global = await answering(tabId, [0], cdp(tabId, "Runtime.evaluate", { expression: "globalThis" }));
+    try {
+      r = await answering(tabId, [0], cdp(tabId, "Runtime.callFunctionOn", {
+        functionDeclaration: source, objectId: global.result.objectId,
+        arguments: a.args.map((value: unknown) => ({ value })),
+        returnByValue: true, awaitPromise: true, userGesture: true,
+      }));
+    } catch (e: any) {
+      if (String(e?.message).includes("does not evaluate to a function")) {
+        throw new Error("with arguments, the expression must be a function, such as (text, n) => ...");
+      }
+      throw e;
+    }
+  } else {
+    r = await answering(tabId, [0], cdp(tabId, "Runtime.evaluate", {
+      expression: source, returnByValue: true, awaitPromise: true, userGesture: true,
+    }));
+  }
+  if (r.exceptionDetails) throw new Error(evalError(source, r.exceptionDetails, Array.isArray(a.args)));
+  if (!Array.isArray(a.args) && r.result?.type === "function") {
+    // A bare function would come back as {}: say so instead of returning a value that looks like data.
+    throw new Error("the expression is a function, which eval returns without calling it: call it, "
+      + "(() => ...)(), or pass its arguments (--arg, or args=[...] in Python; args=[] for none)");
+  }
+  return r.result?.value ?? null;
 }
 
 // ---------------------------------------------------------------- commands
@@ -1237,36 +1314,13 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     return waitFor(tab.id!, a.selector ?? null, a.text ?? null, (a.timeout ?? 10) * 1000, !!a.gone);
   },
   eval: async (a) => {
+    checkDialogArg(a);
     const tab = await resolveTab(a);
-    const source = String(a.expression);
-    let r;
-    if (Array.isArray(a.args)) {
-      // The expression is a function; the arguments travel as JSON values, never as code.
-      const global = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.evaluate", { expression: "globalThis" }));
-      try {
-        r = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.callFunctionOn", {
-          functionDeclaration: source, objectId: global.result.objectId,
-          arguments: a.args.map((value: unknown) => ({ value })),
-          returnByValue: true, awaitPromise: true, userGesture: true,
-        }));
-      } catch (e: any) {
-        if (String(e?.message).includes("does not evaluate to a function")) {
-          throw new Error("with arguments, the expression must be a function, such as (text, n) => ...");
-        }
-        throw e;
-      }
-    } else {
-      r = await answering(tab.id!, [0], cdp(tab.id!, "Runtime.evaluate", {
-        expression: source, returnByValue: true, awaitPromise: true, userGesture: true,
-      }));
-    }
-    if (r.exceptionDetails) throw new Error(evalError(source, r.exceptionDetails, Array.isArray(a.args)));
-    if (!Array.isArray(a.args) && r.result?.type === "function") {
-      // A bare function would come back as {}: say so instead of returning a value that looks like data.
-      throw new Error("the expression is a function, which eval returns without calling it: call it, "
-        + "(() => ...)(), or pass its arguments (--arg, or args=[...] in Python; args=[] for none)");
-    }
-    return r.result?.value ?? null;
+    const dialogs: Dialog[] = [];
+    const value = await answerNatively(tab.id!, a.dialog === "accept", a.promptText ?? null, dialogs,
+      () => evaluate(tab.id!, a));
+    // The page's value stays apart from WebPilot's fields; the client unwraps it.
+    return { value, ...(dialogs.length ? { dialogs } : {}), ...(anyDismissed(dialogs) ? { hint: DISMISSED } : {}) };
   },
   fetch: async (a) => {
     const method = String(a.method ?? "GET").toUpperCase();
