@@ -41,13 +41,19 @@ class WebPilotWarning(UserWarning):
     """Something to know about a command that succeeded, such as a confirm that eval dismissed."""
 
 
+def daemon_command() -> list[str]:
+    """`-P` keeps the caller's folder off sys.path, so a json.py or types.py there is not imported."""
+    return [sys.executable, "-P", "-m", "webpilot", "serve"]
+
+
 def start_daemon() -> None:
     flags = 0
     if sys.platform == "win32":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
     with open(config.home() / "daemon.log", "ab") as log:  # the daemon keeps its own copy of the handle
         subprocess.Popen(
-            [sys.executable, "-m", "webpilot", "serve"],
+            daemon_command(),
+            cwd=config.home(),  # nor hold the caller's folder open (Windows cannot delete it)
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=subprocess.STDOUT,

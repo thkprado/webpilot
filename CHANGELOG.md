@@ -21,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Locked dependencies updated: typer 0.28.0, plus ruff 0.17.4 for development.
 
 ### Fixed
+- The daemon no longer imports Python files from the folder it was started in: a `json.py` or `types.py` in the folder where the first `webpilot` command ran kept the daemon from starting ("could not start daemon"), or ran inside it. It now starts with `python -P` in `~/.webpilot`, so it also stops holding that folder open (on Windows the folder could not be deleted while the daemon ran). The one-time `playwright install chromium` is started the same way.
 - `tab new URL` with a blocked URL opened an empty tab, made it the agent's current tab and only then refused the URL; it now refuses before opening anything.
 - On Windows, a command no longer waits 2 s or more when the daemon is not running yet: `webpilot status` with the daemon stopped answered in about 2.3 s, the first command after a restart (or after `webpilot stop`) took about 3 s to start the daemon and connect; now about 0.3 s and 1 s. A second daemon started while one already listens (two commands at once) exits with one line in `daemon.log` instead of a traceback.
 

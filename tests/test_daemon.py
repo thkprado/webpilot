@@ -439,3 +439,26 @@ def test_duplicate_profile_name_is_refused(daemon):
     assert b.call("ping")["profile"] == "work"  # the first connection is untouched
     b.close()
     first.close()
+
+
+def test_daemon_ignores_modules_in_the_callers_folder(tmp_path, monkeypatch):
+    """`python -m` puts the current folder first on sys.path: a json.py there stopped the daemon from starting."""
+    import subprocess
+
+    from webpilot import client, config
+
+    monkeypatch.setenv("WEBPILOT_DIR", str(tmp_path / "home"))
+    calls = []
+    with monkeypatch.context() as m:
+        m.setattr(subprocess, "Popen", lambda cmd, **kw: calls.append((cmd, kw)))
+        client.start_daemon()
+    cmd, kw = calls[0]
+    assert cmd == client.daemon_command() and "-P" in cmd
+    assert kw["cwd"] == config.home()  # not the caller's folder, which it would hold open
+
+    folder = tmp_path / "work"
+    folder.mkdir()
+    (folder / "json.py").write_text("raise SystemExit('imported json.py from the current folder')\n", "utf-8")
+    help_cmd = [*client.daemon_command()[:-1], "--help"]
+    run = subprocess.run(help_cmd, cwd=folder, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr

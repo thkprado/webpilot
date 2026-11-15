@@ -29,7 +29,7 @@ def chromium_path() -> str:
         path = p.chromium.executable_path
     if not Path(path).exists():
         print("Installing Playwright Chromium (one-time)...", file=sys.stderr)
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        subprocess.run([sys.executable, "-P", "-m", "playwright", "install", "chromium"], check=True)
     cache.write_text(path, "utf-8")
     return path
 
