@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `goto`, `reload`, `tab new`, `tab use` and `tab close` no longer fail with "Tabs cannot be edited right now (user may be dragging a tab)" when the user happens to be dragging a tab in the browser: Chromium refuses every tab edit until the tab is let go, so WebPilot now tries again every 200 ms for up to 10 s, and then fails saying to retry once the tab is let go. Adding a new tab to the WebPilot group is retried the same way, where it used to leave the tab out of the group without a word. Reload the extension after updating.
+
 ### Changed
 - `reflect-data` no longer suggests "use --selector/--interactive or a parser" for a large `extract` that a parser already produced, as when a script reads a whole site through it. It says `Parser NAME returned large data (...)` instead: fine when a script consumes it, and if an agent read it, the parser should return only the fields needed.
 

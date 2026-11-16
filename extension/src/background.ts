@@ -1,6 +1,7 @@
 // Service worker: keeps a WebSocket to the local `webpilot` daemon and executes its commands.
 
 import { PROFILE_NAME, PROFILE_NAME_HINT } from "./profile";
+import { retryTabEdit } from "./tabedit";
 
 type Config = {
   token: string;
@@ -176,19 +177,19 @@ async function addToGroup(tabId: number) {
   const st = await getState();
   if (st.groupId !== undefined) {
     try {
-      await chrome.tabs.group({ tabIds: [tabId], groupId: st.groupId });
+      await retryTabEdit(() => chrome.tabs.group({ tabIds: [tabId], groupId: st.groupId }));
       return;
     } catch { /* group was closed */ }
   }
   try {
-    const groupId = await chrome.tabs.group({ tabIds: [tabId] });
-    await chrome.tabGroups.update(groupId, { title: "WebPilot", color: "purple" });
+    const groupId = await retryTabEdit(() => chrome.tabs.group({ tabIds: [tabId] }));
+    await retryTabEdit(() => chrome.tabGroups.update(groupId, { title: "WebPilot", color: "purple" }));
     await setState({ groupId });
   } catch { /* tab groups unavailable */ }
 }
 
 async function newTab(): Promise<chrome.tabs.Tab> {
-  const tab = await chrome.tabs.create({ url: "about:blank", active: true });
+  const tab = await retryTabEdit(() => chrome.tabs.create({ url: "about:blank", active: true }));
   if (config?.mode === "real") await addToGroup(tab.id!);
   await setState({ currentTabId: tab.id });
   return tab;
@@ -1285,12 +1286,12 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     checkBlocked(a.url); // before the tab opens, so a refused URL leaves the current tab as it was
     const tab = await newTab();
     if (!a.url) return tabInfo(tab.id!);
-    return navigate(tab.id!, a.url, () => chrome.tabs.update(tab.id!, { url: a.url }));
+    return navigate(tab.id!, a.url, () => retryTabEdit(() => chrome.tabs.update(tab.id!, { url: a.url })));
   },
   "tab.use": async (a) => {
     const tab = await chrome.tabs.get(Number(a.tabId));
     checkBlocked(tab.url);
-    await chrome.tabs.update(tab.id!, { active: true });
+    await retryTabEdit(() => chrome.tabs.update(tab.id!, { active: true }));
     await setState({ currentTabId: tab.id });
     return tabInfo(tab.id!);
   },
@@ -1301,7 +1302,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     const dialogs: Dialog[] = [];
     const release = await acceptUnload(Number(id), dialogs); // or a beforeunload prompt keeps the tab open
     try {
-      await chrome.tabs.remove(Number(id));
+      await retryTabEdit(() => chrome.tabs.remove(Number(id)));
     } finally {
       await release();
     }
@@ -1315,7 +1316,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
     if (!a.url) throw new Error("url is required");
     checkBlocked(a.url);
     const tab = a.newTab ? await newTab() : await resolveTab(a);
-    return navigate(tab.id!, a.url, () => chrome.tabs.update(tab.id!, { url: a.url }));
+    return navigate(tab.id!, a.url, () => retryTabEdit(() => chrome.tabs.update(tab.id!, { url: a.url })));
   },
   back: async (a) => {
     const tab = await resolveTab(a);
@@ -1327,7 +1328,7 @@ const commands: Record<string, (a: Args) => Promise<any>> = {
   },
   reload: async (a) => {
     const tab = await resolveTab(a);
-    return navigate(tab.id!, tab.url, () => chrome.tabs.reload(tab.id!));
+    return navigate(tab.id!, tab.url, () => retryTabEdit(() => chrome.tabs.reload(tab.id!)));
   },
 
   snapshot: async (a) => {
