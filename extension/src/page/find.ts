@@ -47,6 +47,10 @@ function refind(ref: string): Element | Err {
 export function find(target: string): Element | Err {
   let el: Element | null = null;
   reresolved = false;
+  if (/[\r\n]/.test(target)) {
+    // "e9\ne\ne": the shell's quoting broke the command; no element will ever match, so do not wait for one.
+    return { error: `the target has a line break: check the quoting (${JSON.stringify(target)})`, fatal: true };
+  }
   if (/^e\d+$/.test(target)) {
     return deepFirst(`[data-wp-ref="${target}"]`) || refind(target);
   }

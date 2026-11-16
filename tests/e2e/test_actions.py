@@ -37,6 +37,10 @@ def test_a_ref_that_is_gone_fails_with_a_clear_error(b, site):
     assert time.monotonic() - start < 5
     with pytest.raises(WebPilotError, match="invalid selector"):
         b.click("button[", timeout=30)
+    start = time.monotonic()
+    with pytest.raises(WebPilotError, match=r'the target has a line break: check the quoting \("e9\\ne\\ne"\)'):
+        b.click("e9\ne\ne", timeout=30)  # quoting broken by the shell
+    assert time.monotonic() - start < 5
 
 
 # ------------------------------------------------------------------ waits
