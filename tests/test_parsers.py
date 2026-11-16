@@ -114,6 +114,18 @@ def test_reflect_groups_outputs_and_flags_busy_pages():
     assert "1 of them had no --wait-text" in text
 
 
+def test_reflect_does_not_suggest_a_parser_for_parser_output():
+    # A script reading every series of a site through its parser: large, but already parsed.
+    page = "https://manga.test/comics/a"
+    entries = [{"cmd": "extract", "url": page, "ok": True, "parser": "manga", "out_chars": n} for n in (30000, 52000)]
+    entries.append({"cmd": "extract", "url": page, "ok": True, "out_chars": 25000})  # no parser matched
+    text = "\n".join(analyze(entries)["suggestions"])
+    assert ("Parser manga returned large data (2x, up to 52000 chars) on manga.test: fine when a script consumes "
+            "it; if an agent read it, have the parser return only the fields needed.") in text
+    assert "Large output (25000 chars) from `extract` on manga.test: use --selector" in text
+    assert "52000 chars) from" not in text
+
+
 def test_reflect_reports_waits_that_timed_out_instead_of_slow():
     entries = [
         {"cmd": "goto", "url": "https://editor.test/", "ok": True, "session": "s"},

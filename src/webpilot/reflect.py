@@ -51,6 +51,7 @@ def analyze(entries: list[dict]) -> dict:
     parser_errors: dict[str, list[str]] = defaultdict(list)
     empty_parses: Counter = Counter()
     large: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> sizes
+    large_parsed: dict[tuple, list[int]] = defaultdict(list)  # (parser, domain) -> sizes of its extract results
     slow: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> durations
     missed: dict[tuple, list[int]] = defaultdict(list)  # (cmd, domain) -> durations of waits that timed out
     busy: dict[tuple, list[dict]] = defaultdict(list)  # (domain, reason) -> actions that never settled
@@ -89,6 +90,8 @@ def analyze(entries: list[dict]) -> dict:
         if not internal and (e.get("out_chars") or 0) > LARGE_OUTPUT:
             if e.get("data_url"):
                 data_urls[where].append(e)
+            elif cmd == "extract" and e.get("parser"):
+                large_parsed[(e["parser"], where)].append(e["out_chars"])
             else:
                 large[(cmd, where)].append(e["out_chars"])
         if e.get("wait_missed"):
@@ -129,6 +132,12 @@ def analyze(entries: list[dict]) -> dict:
         times = f"{len(sizes)}x, up to " if len(sizes) > 1 else ""
         suggestions.append(
             f"Large output ({times}{max(sizes)} chars) from `{cmd}`{_on(name)}: use --selector/--interactive or a parser."
+        )
+    for (parser, name), sizes in sorted(large_parsed.items(), key=lambda kv: -sum(kv[1]))[:5]:
+        times = f"{len(sizes)}x, up to " if len(sizes) > 1 else ""
+        suggestions.append(
+            f"Parser {parser} returned large data ({times}{max(sizes)} chars){_on(name)}: fine when a script consumes "
+            "it; if an agent read it, have the parser return only the fields needed."
         )
     for name, evals in sorted(data_urls.items(), key=lambda kv: -sum(e["out_chars"] for e in kv[1])):
         types = ", ".join(sorted({e["data_url"] for e in evals}))

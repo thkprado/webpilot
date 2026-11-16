@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- `reflect-data` no longer suggests "use --selector/--interactive or a parser" for a large `extract` that a parser already produced, as when a script reads a whole site through it. It says `Parser NAME returned large data (...)` instead: fine when a script consumes it, and if an agent read it, the parser should return only the fields needed.
+
 ## [0.1.14] - 2026-11-15
 
 ### Added
