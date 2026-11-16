@@ -33,6 +33,9 @@ NOT_CONNECTED = {
 EXTENSION_ORIGINS = ("chrome-extension://", "extension://", "moz-extension://")
 DUPLICATE_PROFILE = 4001  # close code: another connected extension already uses this profile name
 BAD_REQUEST = "request must be a JSON object"
+# In `webpilot status` for an extension rebuilt but not reloaded since (its errors say the same).
+STALE = ("extension/dist was rebuilt since the browser loaded this extension: click reload on the WebPilot card "
+         "of the browser's extensions page")
 
 
 def _parse(raw) -> dict | None:
@@ -81,7 +84,9 @@ class Daemon:
             return
         self.extensions.setdefault(mode, {})[profile] = ws
         self.ext_info.setdefault(mode, {})[profile] = {
-            "version": hello.get("version"), "ua": hello.get("ua"), "since": time.time()}
+            "version": hello.get("version"), "build": hello.get("build"), "ua": hello.get("ua"), "since": time.time()}
+        if hello.get("stale"):
+            self.ext_info[mode][profile]["stale"] = STALE
         async with self.ext_changed:
             self.ext_changed.notify_all()
         log.info("extension connected: %s/%s", mode, profile)
@@ -93,6 +98,13 @@ class Daemon:
                     continue
                 if msg.get("type") == "ping":
                     await ws.send('{"type":"pong"}')
+                    continue
+                if msg.get("type") == "info":  # the extension noticed it was rebuilt (or reloaded) since
+                    info = self.ext_info[mode][profile]
+                    if msg.get("stale"):
+                        info["stale"] = STALE
+                    else:
+                        info.pop("stale", None)
                     continue
                 rid = msg.get("id")
                 entry = self.pending.pop(rid, None) if isinstance(rid, str) else None

@@ -21,6 +21,36 @@ let backoff = 500;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ---------------------------------------------------------------- build
+
+/** The build this worker was loaded from (build.mjs puts it in), and whether extension/dist holds another one. */
+declare const __WP_BUILD__: string;
+let stale = false;
+
+const STALE_HINT = "the WebPilot extension running in the browser is older than its build in extension/dist " +
+  "(rebuilt since the browser loaded it): ask the user to click reload on the WebPilot card of the browser's " +
+  "extensions page (chrome://extensions, edge://extensions, ...), then retry";
+
+/** Rebuilt but not reloaded: this worker runs the old code, while scripts injected into pages come from the new
+ * build. Unpacked extensions serve their files from disk, so dist/build.json is the build there now. */
+async function checkStale(): Promise<boolean> {
+  try {
+    const r = await fetch(chrome.runtime.getURL("build.json"), { cache: "no-store" });
+    const disk = r.ok ? (await r.json()).build : null;
+    const now = typeof disk === "string" && disk !== __WP_BUILD__;
+    if (now !== stale) {
+      stale = now;
+      if (ws?.readyState === WebSocket.OPEN) {
+        badge(stale ? "OLD" : "ON", stale ? "#b35c00" : "#1b7f3b");
+        ws.send(JSON.stringify({ type: "info", stale }));
+      }
+    }
+  } catch {
+    // build.json unreadable: keep the last answer
+  }
+  return stale;
+}
+
 function badge(text: string, color: string) {
   chrome.action.setBadgeText({ text }).catch(() => {});
   chrome.action.setBadgeBackgroundColor({ color }).catch(() => {});
@@ -60,13 +90,14 @@ async function connect() {
     chrome.action.setTitle({ title: `WebPilot (profile: ${profile})` }).catch(() => {});
     const sock = new WebSocket(`ws://127.0.0.1:${cfg.port}`);
     ws = sock;
-    sock.onopen = () => {
+    sock.onopen = async () => {
       backoff = 500;
+      await checkStale();
       sock.send(JSON.stringify({
         type: "hello", role: "extension", mode: cfg.mode, token: cfg.token, profile,
-        version: chrome.runtime.getManifest().version, ua: navigator.userAgent,
+        version: chrome.runtime.getManifest().version, build: __WP_BUILD__, stale, ua: navigator.userAgent,
       }));
-      badge("ON", "#1b7f3b");
+      badge(stale ? "OLD" : "ON", stale ? "#b35c00" : "#1b7f3b");
     };
     sock.onmessage = (ev) => {
       let msg: any;
@@ -97,7 +128,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.profile?.oldValue) setTimeout(() => ws?.close(), 200);
 });
 chrome.alarms.create("webpilot-keepalive", { periodInMinutes: 0.5 });
-chrome.alarms.onAlarm.addListener(() => void connect());
+chrome.alarms.onAlarm.addListener(() => void connect().then(checkStale));
 chrome.runtime.onStartup.addListener(() => void connect());
 chrome.runtime.onInstalled.addListener(() => void connect());
 void connect();
@@ -109,7 +140,9 @@ async function handle(sock: WebSocket, req: { id: string; cmd: string; args?: Ar
     if (!fn) throw new Error(`unknown command: ${req.cmd}`);
     reply = { id: req.id, ok: true, result: (await fn(req.args || {})) ?? null };
   } catch (e: any) {
-    reply = { id: req.id, ok: false, error: String(e?.message ?? e) };
+    const error = String(e?.message ?? e);
+    // An old worker fails in ways its error cannot explain (an unknown command, a page script it does not match).
+    reply = { id: req.id, ok: false, error: (await checkStale()) ? `${error}; ${STALE_HINT}` : error };
   }
   if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify(reply));
 }

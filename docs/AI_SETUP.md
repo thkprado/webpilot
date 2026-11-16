@@ -81,7 +81,7 @@ webpilot goto https://example.com -s
 
 - `status` should show the daemon and the extension connected (extension badge `ON`). If the extension is not
   connected, check the badge: `OFF` means the daemon is not running (it starts with the first command), `CFG`
-  means rerun `webpilot setup`, `DUP` means two profiles share a name. See `docs/troubleshooting.md`.
+  means rerun `webpilot setup`, `DUP` means two profiles share a name, `OLD` means the extension was rebuilt and needs a reload. See `docs/troubleshooting.md`.
 - If several browser profiles are connected, **ask the user which one to use** (`webpilot profile list`), then pass `-p NAME`.
 - To test without touching the user's accounts, use `webpilot --temp goto https://example.com -s`. The first
   run downloads Playwright's Chromium (one-time), so it can take a minute.

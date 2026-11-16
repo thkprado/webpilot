@@ -5,7 +5,7 @@ The core guide is [agent.md](agent.md).
 
 | Symptom | What to do |
 |---|---|
-| "extension (real browser) is not connected" | The browser must be open with the extension loaded. Ask the user to check the extension's badge: `ON` connected, `OFF` daemon not running (it starts with the next command), `CFG` the user must run `webpilot setup` again, `DUP` two connected profiles share a name (rename one in the extension's popup). `webpilot status` shows what the daemon sees. Do not switch to `--temp` without asking: the user's sessions are only in the real browser. |
+| "extension (real browser) is not connected" | The browser must be open with the extension loaded. Ask the user to check the extension's badge: `ON` connected, `OFF` daemon not running (it starts with the next command), `CFG` the user must run `webpilot setup` again, `DUP` two connected profiles share a name (rename one in the extension's popup), `OLD` the extension was rebuilt and the user must reload it on the extensions page. `webpilot status` shows what the daemon sees. Do not switch to `--temp` without asking: the user's sessions are only in the real browser. |
 | "several browser profiles are connected" | Ask the user which profile to use, then pass `-p NAME` on every command. The user can set a default with `"profile"` in `~/.webpilot/config.json`. |
 | "browser profile 'X' is not connected" | That profile's browser window is closed or its extension is off; the error lists the connected names. Ask the user. |
 | "could not run script in this tab" / restricted page | Pages such as `chrome://`, `edge://`, the extension store and PDFs cannot be scripted. `goto` a normal page. |

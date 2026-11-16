@@ -8,6 +8,7 @@ const STATES: Record<string, [string, string]> = {
   OFF: ["Daemon is not running (it starts on the first webpilot command)", "off"],
   CFG: ["Not configured: run webpilot setup", "err"],
   DUP: ["Another connected profile already uses this name: pick another", "err"],
+  OLD: ["Connected, but extension/dist was rebuilt since: click reload on the extensions page", "err"],
 };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

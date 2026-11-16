@@ -49,6 +49,7 @@ Abra a página de extensões do navegador (`chrome://extensions`; Edge: `edge://
 | `OFF` | daemon não está rodando (ele inicia no primeiro comando `webpilot`) |
 | `CFG` | rode `webpilot setup` de novo |
 | `DUP` | outro perfil conectado já usa este nome de perfil; renomeie um deles (abaixo) |
+| `OLD` | conectado, mas o `extension/dist` foi recompilado depois que o navegador o carregou: clique em recarregar no card do WebPilot |
 
 Clique no ícone para abrir um popup com o estado da conexão e o nome deste perfil.
 

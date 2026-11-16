@@ -462,3 +462,30 @@ def test_daemon_ignores_modules_in_the_callers_folder(tmp_path, monkeypatch):
     help_cmd = [*client.daemon_command()[:-1], "--help"]
     run = subprocess.run(help_cmd, cwd=folder, capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
+
+
+def test_status_shows_an_extension_rebuilt_but_not_reloaded(daemon):
+    b = Browser("real", autostart=False)
+
+    def info() -> dict:
+        deadline = time.monotonic() + 2
+        while not (ext := b.status()["extensions"].get("real", {}).get("work")) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        return ext
+
+    def wait_for(stale: bool) -> dict:
+        deadline = time.monotonic() + 2
+        while ("stale" in (ext := info())) != stale and time.monotonic() < deadline:
+            time.sleep(0.02)
+        return ext
+
+    with connect(f"ws://127.0.0.1:{daemon['port']}", origin="chrome-extension://abc") as ext:
+        ext.send(json.dumps({"type": "hello", "role": "extension", "mode": "real", "token": daemon["token"],
+                             "profile": "work", "build": "abc123", "stale": True}))
+        assert info()["build"] == "abc123"
+        assert "click reload" in wait_for(True)["stale"]  # what to do, in `webpilot status`
+        ext.send(json.dumps({"type": "info", "stale": False}))  # reloaded since
+        assert "stale" not in wait_for(False)
+        ext.send(json.dumps({"type": "info", "stale": True}))  # rebuilt again
+        assert "stale" in wait_for(True)
+    b.close()
