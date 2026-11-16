@@ -52,7 +52,7 @@ def test_fetch_outside_the_allowed_domains_is_refused(allowed, site):
 def test_a_click_that_leaves_the_allowed_domains_fails_and_locks_the_tab(allowed, site):
     allowed.goto(on(site, "nav-a.html"))
     allowed.eval(f"document.body.insertAdjacentHTML('beforeend', '<a id=out href={site.url('nav-b.html')}>Out</a>')")
-    with pytest.raises(WebPilotError, match=f"the tab went to a page off limits \({OUTSIDE}\)") as e:
+    with pytest.raises(WebPilotError, match=rf"the tab went to a page off limits \({OUTSIDE}\)") as e:
         allowed.click("#out")
     assert "Nav B" not in str(e.value)
     with pytest.raises(WebPilotError, match=OUTSIDE):

@@ -46,7 +46,7 @@ def test_fetch_to_a_blocked_domain_is_refused(blocked, site):
 
 def test_a_redirect_to_a_blocked_domain_locks_the_tab(blocked, site):
     # The goto itself fails once the tab lands there, without reporting the page's title.
-    with pytest.raises(WebPilotError, match=f"the tab went to a page off limits \({BLOCKED}\)") as e:
+    with pytest.raises(WebPilotError, match=rf"the tab went to a page off limits \({BLOCKED}\)") as e:
         blocked.goto(site.url(f"redirect?to={localhost(site, 'nav-b.html')}"))
     assert "Nav B" not in str(e.value)
     for read in (blocked.snapshot, blocked.info, lambda: blocked.eval("1")):

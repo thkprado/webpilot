@@ -27,7 +27,8 @@ def anchors(path: Path) -> set[str]:
 
 
 def test_agent_guide_size():
-    size = len((DOCS / "agent.md").read_bytes())
+    # Counted with LF line endings: a Windows checkout (core.autocrlf) adds a byte per line that no agent pays for.
+    size = len((DOCS / "agent.md").read_bytes().replace(b"\r\n", b"\n"))
     assert size <= AGENT_MD_MAX, (
         f"docs/agent.md is {size} bytes, over {AGENT_MD_MAX}: every agent session reads it whole. Put details in "
         "docs/python-api.md or docs/troubleshooting.md, and what to do after a failure in the error message itself; "
