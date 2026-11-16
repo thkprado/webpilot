@@ -10,11 +10,17 @@ permissions:
 
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # Oldest supported and newest released.
         python: ["3.11", "3.14"]
+        # Windows starts the daemon, notices a stopped one and locks folders its own way.
+        include:
+          - os: windows-latest
+            python: "3.14"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
