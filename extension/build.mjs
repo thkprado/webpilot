@@ -1,7 +1,7 @@
 // Builds the extension into dist/. dist/config.json is written by `webpilot setup` and is never touched here.
 import * as esbuild from "esbuild";
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 
 const watch = process.argv.includes("--watch");
 mkdirSync("dist", { recursive: true });
@@ -12,7 +12,8 @@ copyFileSync("popup.html", "dist/popup.html");
 // disk; the extension compares the two to notice it was rebuilt but not reloaded (badge OLD, a hint in errors).
 // In --watch mode it is taken once at start, so rebuilds by the watcher are not told apart.
 const sources = ["build.mjs", "manifest.json", "popup.html", "package-lock.json",
-  ...readdirSync("src").sort().map((f) => `src/${f}`)];
+  ...readdirSync("src", { recursive: true }).map((f) => `src/${f.replaceAll("\\", "/")}`)
+    .filter((f) => statSync(f).isFile()).sort()];
 const hash = createHash("sha256");
 for (const f of sources) hash.update(f).update("\0").update(readFileSync(f)).update("\0");
 const build = hash.digest("hex").slice(0, 12);

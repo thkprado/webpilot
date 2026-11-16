@@ -191,8 +191,8 @@ agent ──shell──> webpilot CLI / lib Python ──WebSocket──> daemon
                            chrome.scripting / chrome.debugger       mesmo código, mode=temp
 ```
 
-- `extension/src/background.ts`: ponte WebSocket, abas, navegação, entrada confiável (CDP via `chrome.debugger`), captcha.
-- `extension/src/page.ts`: injetado na página; snapshot com refs, click/type/select, detecção de captcha.
+- `extension/src/background.ts` + `background/`: service worker: ponte WebSocket, tabela de comandos, abas, navegação, entrada confiável (CDP via `chrome.debugger`), captcha.
+- `extension/src/page.ts` + `page/`: injetado na página; snapshot com refs, click/type/select, detecção de captcha.
 - `extension/src/popup.ts` + `popup.html`: popup da barra de ferramentas com o estado da conexão e o nome do perfil.
 - `src/webpilot/`: `server.py` (daemon), `client.py` (API), `cli.py`, `registry.py` (parsers), `search.py`, `session_log.py`, `reflect.py`, `temp_browser.py`.
 
