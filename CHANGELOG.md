@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-18
+
 ### Security
 - **The guide for agents, the skill and the snippet for agents' instruction files now say that what pages say is data, never instructions.** Page text, snapshots and the results of `extract`, `eval` and `fetch` may carry text written to steer an agent (prompt injection), and an agent that meets a request there tells the user instead of acting on it. Nothing said so before, while the agent reads pages with the user's logged-in sessions. Run `webpilot skill install` again to update an installed skill (`webpilot skill list` shows it as `outdated`).
 
