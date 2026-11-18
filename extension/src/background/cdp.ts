@@ -1,5 +1,7 @@
-// Service worker: the debugger (CDP) connection to a tab, its events, and trusted mouse and key input.
+// Service worker: the debugger (CDP) connection to a tab, its events, trusted mouse and key input, screenshots.
 
+import { retryTabEdit } from "../tabedit";
+import { sleep } from "./config";
 import { rethrowBlocked, frameCall } from "./scripts";
 
 const attached = new Set<number>();
@@ -13,15 +15,19 @@ chrome.debugger.onDetach.addListener((src) => {
   detachTimers.delete(src.tabId);
 });
 
-export async function cdp(tabId: number, method: string, params: { [key: string]: unknown } = {}): Promise<any> {
-  if (!attached.has(tabId)) {
-    try {
-      await chrome.debugger.attach({ tabId }, "1.3");
-    } catch (e: any) {
-      if (!String(e?.message).includes("already attached")) throw e;
-    }
-    attached.add(tabId);
+async function attach(tabId: number) {
+  if (attached.has(tabId)) return;
+  try {
+    await chrome.debugger.attach({ tabId }, "1.3");
+  } catch (e: any) {
+    if (!String(e?.message).includes("already attached")) throw e;
   }
+  attached.add(tabId);
+}
+
+/** Sends a CDP command. Once the tab is attached, calls made one after another reach it in that order. */
+export async function cdp(tabId: number, method: string, params: { [key: string]: unknown } = {}): Promise<any> {
+  if (!attached.has(tabId)) await attach(tabId);
   // Detach when idle so the "is debugging this browser" bar goes away. The idle timer starts only
   // after the last in-flight command finishes, so a long Runtime.evaluate (awaitPromise) is not cut
   // by "Detached while handling command".
@@ -74,9 +80,14 @@ export async function assertVisible(tabId: number, frameId = 0) {
 }
 
 export async function mouseClick(tabId: number, x: number, y: number) {
-  await cdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  // In a background tab (another agent's is in front) Chromium answers a mouse move only at the next animation
+  // frame, which hidden tabs do not draw: ~5 s. The press sends it on at once, so the move is awaited after it.
+  await attach(tabId);
+  const moved = cdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  moved.catch(() => {}); // awaited below; this only keeps an early failure from going unhandled
   await cdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
   await cdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  await moved;
 }
 
 const KEYS: Record<string, [string, number, string?]> = {
@@ -112,3 +123,35 @@ export async function pressKey(tabId: number, combo: string) {
   await cdp(tabId, "Input.dispatchKeyEvent", { ...base, type: text ? "keyDown" : "rawKeyDown", text, unmodifiedText: text });
   await cdp(tabId, "Input.dispatchKeyEvent", { ...base, type: "keyUp" });
 }
+
+let fronting: Promise<unknown> = Promise.resolve(); // one tab brought to the front at a time
+
+/**
+ * Waits for a CDP command that a background tab (another agent's tab is in front) answers late, because it waits
+ * for a frame and hidden tabs draw none: a screenshot (0.1 to 15 s) or a lone mouse move (5 s). Still running
+ * after half a second, it brings its tab to the front until it ends, then gives the window its previous tab
+ * back, unless something else was put in front meanwhile.
+ */
+export async function frontIfSlow<T>(tabId: number, command: Promise<T>): Promise<T> {
+  let done = false;
+  const tracked = command.finally(() => { done = true; });
+  await Promise.race([tracked.catch(() => {}), sleep(500)]);
+  if (done || (await chrome.tabs.get(tabId)).active) return tracked;
+  const front = fronting.then(async () => {
+    if (done) return;
+    const { windowId } = await chrome.tabs.get(tabId);
+    const [prev] = await chrome.tabs.query({ active: true, windowId });
+    await retryTabEdit(() => chrome.tabs.update(tabId, { active: true }));
+    await tracked.catch(() => {});
+    const [now] = await chrome.tabs.query({ active: true, windowId });
+    if (prev?.id !== undefined && now?.id === tabId) {
+      await retryTabEdit(() => chrome.tabs.update(prev.id!, { active: true })).catch(() => {});
+    }
+  });
+  fronting = front.catch(() => {});
+  await front.catch(() => {}); // could not bring it to the front: wait for the command as it is
+  return tracked;
+}
+
+export const captureScreenshot = (tabId: number, params: Record<string, unknown>) =>
+  frontIfSlow(tabId, cdp(tabId, "Page.captureScreenshot", params));

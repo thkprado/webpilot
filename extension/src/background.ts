@@ -99,12 +99,14 @@ chrome.runtime.onStartup.addListener(() => void connect());
 chrome.runtime.onInstalled.addListener(() => void connect());
 void connect();
 
-async function handle(sock: WebSocket, req: { id: string; cmd: string; args?: Args }) {
+async function handle(sock: WebSocket, req: { id: string; cmd: string; args?: Args; agent?: unknown }) {
   let reply: any;
   try {
     const fn = commands[req.cmd];
     if (!fn) throw new Error(`unknown command: ${req.cmd}`);
-    reply = { id: req.id, ok: true, result: (await fn(req.args || {})) ?? null };
+    // Whose current tab the command uses (background/tabs.ts): from the request, never from the command's args.
+    const args: Args = { ...(req.args || {}), _agent: typeof req.agent === "string" && req.agent ? req.agent : undefined };
+    reply = { id: req.id, ok: true, result: (await fn(args)) ?? null };
   } catch (e: any) {
     const error = String(e?.message ?? e);
     // An old worker fails in ways its error cannot explain (an unknown command, a page script it does not match).

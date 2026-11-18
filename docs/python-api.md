@@ -22,6 +22,15 @@ Run scripts with `uv run --project <webpilot> python script.py` (`<webpilot>` is
 this `docs/` folder). `WEBPILOT_MODE=temp` makes `Browser()` (and every CLI command) use the temporary browser;
 `WEBPILOT_SESSION=name` names the session in the log.
 
+**One current tab per agent.** Commands without a tab id act on the caller's current tab, so two agents using
+the browser at once never act on each other's tab. Who the caller is, first match wins: `Browser(agent="name")`;
+`WEBPILOT_SESSION`; the session id that GitHub Copilot CLI or Claude Code exports to its commands; else the
+process tree (the agent that started the command, or the terminal it runs in). A script or `webpilot script`
+started by an agent shares the agent's tab. `webpilot status` shows the key (`"agent"`); `Browser(agent="")` uses
+the tab shared by callers without a key, as every caller did before. `Browser(tab=ID)` (CLI `--tab ID`) acts on
+one tab whatever the current one is. `tabs()` marks the caller's tab `"current": True` and the current tabs of
+other agents `"other_agent": True` (possibly of an agent that has finished): leave those alone unless asked.
+
 - Methods: `goto, back, forward, reload, snapshot, html, text, click, type, select, fill, upload, hover, press,
   submit, scroll, wait, eval, fetch, requests, screenshot, captcha, extract, search, tabs, new_tab, use_tab,
   close_tab, info, status`.

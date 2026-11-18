@@ -15,6 +15,7 @@ The core guide is [agent.md](agent.md).
 | A dropdown option was clicked or chosen with keys, but nothing was chosen | Use `select <combobox ref> <text>`: one command, so the menu cannot close in between (it closes when the browser window loses focus). |
 | "the browser window is minimized or covered" | Real input (`--trusted`, `type --submit`, `press`) would be lost. Ask the user to bring the browser to the front, or do without it: `click`/`type` without `--trusted`, `submit` instead of `--submit`, `select` for dropdowns. |
 | `--wait-text`/`wait` timed out | The marker never appeared. Look at what the page shows instead (`snapshot`, `screenshot`): an error, a different state, a URL without its fragment. |
+| Commands act on another agent's tab, or refs vanish while another agent works | Two agents were taken for one: `webpilot status` shows the same `"agent"` in both (for instance two chats sharing one terminal, or a Git Bash `exec` that hid the agent's process). Give each agent its own name: `WEBPILOT_SESSION=name` on its commands (or `Browser(agent="name")`). |
 | `fetch`: "... is a Windows path" | Git Bash rewrote the relative URL. Prefix the command with `MSYS_NO_PATHCONV=1`, or pass the full URL. |
 | Google showed "unusual traffic" | Use `search -e ddg`, or ask the user to solve the captcha in the browser. |
 | Something else, unexplained | The daemon's log is `~/.webpilot/daemon.log`. Describe the problem to the user with the command and its output. |

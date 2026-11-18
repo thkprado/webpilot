@@ -158,7 +158,7 @@ def profile_rename(old: str, new: str):
 
 @app.command()
 def tabs():
-    """List all tabs (agent=True for tabs in the WebPilot group, current=True for the active agent tab)."""
+    """List all tabs (agent: in the WebPilot group; current: your current tab; other_agent: another agent's)."""
     out(browser().tabs())
 
 

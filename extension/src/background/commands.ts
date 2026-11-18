@@ -4,9 +4,9 @@ import { PROFILE_NAME, PROFILE_NAME_HINT } from "../profile";
 import { retryTabEdit } from "../tabedit";
 import { Args, config, profileName } from "./config";
 import { checkBlocked } from "./domains";
-import { getState, setState, markKey, newTab, resolveTab, tabInfo } from "./tabs";
+import { getState, markKey, newTab, resolveTab, tabInfo, currentTab, setCurrentTab, clearCurrentTab, othersTabs } from "./tabs";
 import { RESTRICTED, explain, PageBlocked, answering, frameCall, pageCall, allFramesCall } from "./scripts";
-import { cdp, assertVisible, mouseClick, pressKey } from "./cdp";
+import { cdp, assertVisible, mouseClick, pressKey, captureScreenshot, frontIfSlow } from "./cdp";
 import { Loc, FrameRead, inlineFrames, selectorCall, locateAbs, locateUncovered, SHOT_MARGIN } from "./frames";
 import { domIdle, waitTarget, waitFor } from "./wait";
 import { Dialog, acceptUnload, answerNatively, checkDialogArg, anyDismissed, DISMISSED } from "./dialogs";
@@ -29,17 +29,21 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
     return { profile: name };
   },
 
-  "tabs.list": async () => {
+  "tabs.list": async (a) => {
     const st = await getState();
+    const mine = await currentTab(a._agent);
+    const others = await othersTabs(a._agent);
     return (await chrome.tabs.query({})).map((t) => ({
       id: t.id, title: t.title, url: t.url, active: t.active, windowId: t.windowId,
       agent: st.groupId !== undefined && t.groupId === st.groupId,
-      current: t.id === st.currentTabId,
+      current: t.id === mine,
+      // Another agent's current tab (maybe of an agent that has finished): used only when the user asks.
+      ...(t.id !== mine && others.has(t.id!) ? { other_agent: true } : {}),
     }));
   },
   "tab.new": async (a) => {
     checkBlocked(a.url); // before the tab opens, so a refused URL leaves the current tab as it was
-    const tab = await newTab();
+    const tab = await newTab(a);
     if (!a.url) return tabInfo(tab.id!);
     return navigate(tab.id!, a.url, () => retryTabEdit(() => chrome.tabs.update(tab.id!, { url: a.url })));
   },
@@ -47,12 +51,12 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
     const tab = await chrome.tabs.get(Number(a.tabId));
     checkBlocked(tab.url);
     await retryTabEdit(() => chrome.tabs.update(tab.id!, { active: true }));
-    await setState({ currentTabId: tab.id });
+    await setCurrentTab(a._agent, tab.id!);
     return tabInfo(tab.id!);
   },
   "tab.close": async (a) => {
-    const st = await getState();
-    const id = a.tabId ?? st.currentTabId;
+    const mine = await currentTab(a._agent);
+    const id = a.tabId ?? mine;
     if (id === undefined) throw new Error("no tab to close");
     const dialogs: Dialog[] = [];
     const release = await acceptUnload(Number(id), dialogs); // or a beforeunload prompt keeps the tab open
@@ -62,7 +66,7 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
       await release();
     }
     await chrome.storage.session.remove(markKey(Number(id)));
-    if (Number(id) === st.currentTabId) await chrome.storage.session.remove("currentTabId");
+    if (Number(id) === mine) await clearCurrentTab(a._agent); // other agents' slots: tabs.ts onRemoved
     return { closed: Number(id), ...(dialogs.length ? { dialogs } : {}) };
   },
   "tab.info": async (a) => tabInfo((await resolveTab(a)).id!),
@@ -70,7 +74,7 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
   goto: async (a) => {
     if (!a.url) throw new Error("url is required");
     checkBlocked(a.url);
-    const tab = a.newTab ? await newTab() : await resolveTab(a);
+    const tab = a.newTab ? await newTab(a) : await resolveTab(a);
     return navigate(tab.id!, a.url, () => retryTabEdit(() => chrome.tabs.update(tab.id!, { url: a.url })));
   },
   back: async (a) => {
@@ -230,7 +234,7 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
       await assertVisible(tab.id!, loc.frameId);
       const p = await locateUncovered(tab.id!, loc, String(a.target), (a.timeout ?? 5) * 1000, "hover");
       const count = await armCount(tab.id!, loc.frameId);
-      await cdp(tab.id!, "Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x, y: p.y });
+      await frontIfSlow(tab.id!, cdp(tab.id!, "Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x, y: p.y }));
       return { desc: p.desc, count };
     }, undefined, "shown");
     // A menu opened by CSS :hover changes no DOM, so after --trusted "no change" says nothing: read the page.
@@ -331,7 +335,7 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
       params.clip = { x: x0, y: y0, width: x1 - x0, height: y1 - y0, scale: 1 };
       // Only an element larger than the viewport needs the page laid out past it (which resizes it for a moment).
       if (x1 - x0 > vp.clientWidth || y1 - y0 > vp.clientHeight) params.captureBeyondViewport = true;
-      const r = await cdp(tab.id!, "Page.captureScreenshot", params);
+      const r = await captureScreenshot(tab.id!, params);
       return { tabId: tab.id, format: "png", target: p.desc, data: r.data };
     }
     if (a.full) {
@@ -340,7 +344,7 @@ export const commands: Record<string, (a: Args) => Promise<any>> = {
       params.captureBeyondViewport = true;
       params.clip = { x: 0, y: 0, width: size.width, height: Math.min(size.height, 16000), scale: 1 };
     }
-    const r = await cdp(tab.id!, "Page.captureScreenshot", params);
+    const r = await captureScreenshot(tab.id!, params);
     return { tabId: tab.id, format: "png", data: r.data };
   },
   captcha: async (a) => solveCheckbox((await resolveTab(a)).id!),
