@@ -13,6 +13,7 @@ from typing import Optional
 
 import typer
 
+from . import agent as agents
 from . import config, reflect, registry, session_log, skills, temp_browser
 from .client import EXTENSION_WAIT, Browser, Connection, WebPilotError
 
@@ -89,15 +90,17 @@ def serve():
 def status():
     """Show daemon and extension connection status."""
     cfg = config.load()
+    agent = agents.agent_key()  # whose current tab this caller's commands act on
     try:
         conn = Connection(cfg, autostart=False)
     except WebPilotError as e:
-        out({"daemon": False, "error": str(e)})
+        out({"daemon": False, "error": str(e), "agent": agent})
         return
     st = conn.request("daemon.status")
     conn.close()
     temp = temp_browser._state_path()
-    out({"daemon": True, **st, "temp_browser": json.loads(temp.read_text("utf-8")) if temp.exists() else None})
+    out({"daemon": True, **st, "agent": agent,
+         "temp_browser": json.loads(temp.read_text("utf-8")) if temp.exists() else None})
 
 
 @app.command()

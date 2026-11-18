@@ -2,7 +2,8 @@
 
 Protocol (JSON over WebSocket on 127.0.0.1):
   hello    -> {"type": "hello", "role": "client"|"extension", "token": ..., "mode": "real"|"temp", "profile": name}
-  request  -> {"id", "cmd", "args", "mode", "profile", "timeout", "wait"}   (client -> daemon -> extension)
+  request  -> {"id", "cmd", "args", "mode", "profile", "timeout", "wait", "agent"}   (client -> daemon)
+           -> {"id", "cmd", "args", "agent"}   (daemon -> extension; "agent" picks whose current tab, see agent.py)
 
 Each browser profile with the extension connects on its own, keyed by (mode, profile name). A request
 without a profile goes to the only connected one; with several connected it must name one.
@@ -164,7 +165,10 @@ class Daemon:
         fut = asyncio.get_running_loop().create_future()
         self.pending[rid] = (fut, ext)
         try:
-            await ext.send(json.dumps({"id": rid, "cmd": cmd, "args": msg.get("args") or {}}))
+            req = {"id": rid, "cmd": cmd, "args": msg.get("args") or {}}
+            if isinstance(agent := msg.get("agent"), str) and agent:
+                req["agent"] = agent  # an extension without per-agent tabs ignores it
+            await ext.send(json.dumps(req))
             reply = await asyncio.wait_for(fut, float(msg.get("timeout") or 60))
         except TimeoutError:
             raise RuntimeError(f"timed out waiting for the browser ({cmd})") from None

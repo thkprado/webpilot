@@ -43,6 +43,8 @@ def fake_extension(port: int, token: str, mode: str = "real", origin: str = "chr
                         result = results[msg["cmd"]]
                     else:
                         result = {"cmd": msg["cmd"], "args": msg["args"], "url": "https://x.test/", "profile": profile}
+                        if "agent" in msg:
+                            result["agent"] = msg["agent"]
                     if msg["cmd"] == "eval":  # the page's value apart from WebPilot's fields, as the extension does
                         result = {"value": result}
                     ws.send(json.dumps({"id": msg["id"], "ok": True, "result": result}))

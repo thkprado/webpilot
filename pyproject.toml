@@ -9,6 +9,7 @@ authors = [{ name = "Thiago Kato Prado" }]
 requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.48",
+    "psutil>=7.2.2",
     "selectolax>=0.3.27",
     "typer>=0.15.4",
     "websockets>=15.0",

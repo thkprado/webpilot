@@ -26,6 +26,7 @@ from typing import Any
 from websockets.exceptions import ConnectionClosed, InvalidHandshake
 from websockets.sync.client import ClientConnection, connect
 
+from . import agent as agents
 from . import config, registry, session_log, temp_browser
 
 # How long to wait for the extension to (re)connect: the MV3 service worker may be asleep
@@ -165,9 +166,10 @@ class Connection:
         return ws
 
     def request(self, cmd: str, args: dict | None = None, *, mode: str = "real", profile: str | None = None,
-                timeout: float = 60, wait: float = 0) -> Any:
+                timeout: float = 60, wait: float = 0, agent: str | None = None) -> Any:
         rid = uuid.uuid4().hex
-        msg = {"id": rid, "cmd": cmd, "args": args or {}, "mode": mode, "profile": profile, "timeout": timeout, "wait": wait}
+        msg = {"id": rid, "cmd": cmd, "args": args or {}, "mode": mode, "profile": profile, "timeout": timeout,
+               "wait": wait, "agent": agent}
         try:
             self.ws.send(json.dumps(msg))
             while True:
@@ -186,7 +188,7 @@ class Connection:
 
 class Browser:
     def __init__(self, mode: str | None = None, tab: int | None = None, *, profile: str | None = None,
-                 autostart: bool = True, log: bool = True):
+                 agent: str | None = None, autostart: bool = True, log: bool = True):
         self.mode = mode or os.environ.get("WEBPILOT_MODE") or "real"
         if self.mode not in ("real", "temp"):
             raise WebPilotError(f"mode must be 'real' or 'temp', not {self.mode!r}")
@@ -198,6 +200,9 @@ class Browser:
         self.profile = profile or os.environ.get("WEBPILOT_PROFILE") or self.cfg.get("profile") or None
         if self.mode == "temp":
             self.profile = None
+        # Whose current tab the commands without a tab id act on: each agent has its own (see agent.py).
+        # None detects it; "" uses the browser's shared current tab.
+        self.agent = agents.agent_key() if agent is None else (agent or None)
         self._conn: Connection | None = None
         self.last_dialogs: list[dict] = []  # answered during the last eval
 
@@ -222,7 +227,7 @@ class Browser:
         result, error = None, None
         try:
             result = self.conn.request(cmd, args, mode=self.mode, profile=self.profile, timeout=_timeout,
-                                       wait=EXTENSION_WAIT[self.mode])
+                                       wait=EXTENSION_WAIT[self.mode], agent=self.agent)
             return result
         except WebPilotError as e:
             error = str(e)
@@ -269,7 +274,12 @@ class Browser:
                         entry["frames"] = [{"domain": session_log.domain(f.get("url")), "chars": f.get("chars") or len(f.get("html") or "")}
                                            for f in result["frames"]]
                 entry.update(_log or {})
-                session_log.record(**entry)
+                self._record(**entry)
+
+    def _record(self, **entry) -> None:
+        if self.agent:  # tells interleaved runs of several agents apart in reflect-data
+            entry["agent"] = self.agent
+        session_log.record(**entry)
 
     def close(self) -> None:
         if self._conn:
@@ -510,7 +520,7 @@ class Browser:
                     break
         if parser is None:
             snap = self.snapshot(max_chars=max_chars)
-            session_log.record(cmd="extract", args={}, ok=True, url=page["url"], parser=None, out_chars=len(snap["text"]), ms=0)
+            self._record(cmd="extract", args={}, ok=True, url=page["url"], parser=None, out_chars=len(snap["text"]), ms=0)
             return {
                 "url": page["url"],
                 "title": page["title"],
@@ -522,12 +532,12 @@ class Browser:
         try:
             data = parser.parse(page["html"], page["url"])
         except Exception as e:
-            session_log.record(cmd="extract", args={}, ok=False, url=page["url"], parser=parser.name,
-                               error=f"{type(e).__name__}: {e}"[:300], ms=round((time.perf_counter() - start) * 1000))
+            self._record(cmd="extract", args={}, ok=False, url=page["url"], parser=parser.name,
+                         error=f"{type(e).__name__}: {e}"[:300], ms=round((time.perf_counter() - start) * 1000))
             raise WebPilotError(f"parser {parser.name} failed: {type(e).__name__}: {e}") from e
         size = len(json.dumps(data, ensure_ascii=False))
-        session_log.record(cmd="extract", args={}, ok=True, url=page["url"], parser=parser.name, out_chars=size,
-                           empty=not data, ms=round((time.perf_counter() - start) * 1000))
+        self._record(cmd="extract", args={}, ok=True, url=page["url"], parser=parser.name, out_chars=size,
+                     empty=not data, ms=round((time.perf_counter() - start) * 1000))
         result = {"url": page["url"], "title": page["title"], "parser": parser.name, "data": data}
         if page is not top:
             result.update(frame=page["frame"], page_url=top["url"])
