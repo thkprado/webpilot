@@ -273,6 +273,8 @@ class Browser:
                     if result.get("frames"):  # domains only: frame URLs may carry session ids
                         entry["frames"] = [{"domain": session_log.domain(f.get("url")), "chars": f.get("chars") or len(f.get("html") or "")}
                                            for f in result["frames"]]
+                if isinstance(result, dict) and result.get("hint"):  # its first words only: hints quote page data
+                    entry["hint"] = session_log.kind(result["hint"])
                 entry.update(_log or {})
                 self._record(**entry)
 

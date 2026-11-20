@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -32,6 +33,25 @@ def domain(url: str | None) -> str:
         return ""
     host = urlparse(url).hostname or ""  # never user:password@ or the port
     return host[4:] if host.startswith("www.") else host
+
+
+def kind(message: object) -> str:
+    """The first words of a WebPilot message (a hint or an error), without the page data after them:
+    "element not found: #buy (waited 5s)" -> "element not found". A JavaScript error keeps only its class."""
+    text = str(message or "").strip()
+    if m := re.match(r"(?:Uncaught )?([A-Z]\w*Error)\b", text):
+        return m.group(1)
+    words: list[str] = []
+    for word in text.split()[:8]:
+        bare = word.rstrip(",;:.")
+        if not re.fullmatch(r"[a-z]+" if words else r"[A-Za-z][a-z]*", bare):
+            break
+        words.append(bare)
+        if bare != word:  # the message goes on with its details
+            break
+    if len(words) == 1 and words[0][0].isupper():  # a lone capitalised word may be a name from the page
+        return "other"
+    return " ".join(words) or "other"
 
 
 def _b64_size(data: object) -> int | None:

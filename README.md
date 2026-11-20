@@ -148,9 +148,10 @@ Every action is logged in `~/.webpilot/sessions/<date>.jsonl`. Typed text is not
 
 ```bash
 webpilot reflect-data              # today's session; --days 7, --session NAME, --json
+webpilot reflect-data --usage --days 14   # per-command numbers, without domains or page text
 ```
 
-It reports domains read without a parser, repeated interactive flows (snapshots taken only to find refs before clicking; iframe content counts for the iframe's domain), parser failures, empty parser results, large outputs, repeated errors and slow commands, each with a suggestion. The full procedure is in `docs/reflect.md`. In this project, use `/reflect` in Claude Code, or the `reflect` skill in Antigravity (`.agents/skills/`) and Copilot CLI (`.github/skills/`).
+It reports domains read without a parser, repeated interactive flows (snapshots taken only to find refs before clicking; iframe content counts for the iframe's domain), parser failures, empty parser results, large outputs, repeated errors and slow commands, each with a suggestion. The full procedure is in `docs/reflect.md`. `--usage` reports instead, per command, its calls, failures, median time, missed waits and the first words of its errors and hints, plus the commands never used. It names no domain, URL or page text, so it can be shared from a machine whose browsing should stay there; still, read it before sharing. It leaves out actions on local pages (`localhost`, `file:`), and, like the default report, sessions with a name other than a date unless `--session` names them. In this project, use `/reflect` in Claude Code, or the `reflect` skill in Antigravity (`.agents/skills/`) and Copilot CLI (`.github/skills/`).
 
 ## 5. Reference
 

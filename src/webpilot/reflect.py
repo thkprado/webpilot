@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from statistics import median
 
 from .session_log import domain as _domain
+from .session_log import kind as _kind
 
 RAW_READS = {"snapshot", "html", "text"}
 ACTIONS = {"click", "type", "select", "press", "submit"}
@@ -181,6 +183,83 @@ def analyze(entries: list[dict]) -> dict:
         "errors": [{"cmd": c, "error": m, "count": n} for (c, m), n in errors.most_common()],
         "suggestions": suggestions,
     }
+
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _local(url: str | None) -> bool:
+    """A page served from this machine: WebPilot's own test pages, not real use."""
+    return bool(url) and (url.startswith("file:") or _domain(url).strip("[]") in LOCAL_HOSTS)
+
+
+def usage(entries: list[dict], commands: list[str]) -> dict:
+    """How each command is used: calls, failures, time, and the first words of its hints and errors.
+    No domain, URL or page text, so the report can leave the machine. `commands` lists every command
+    the log may name, to show those never used. Actions on local pages (test pages) are left out."""
+    stats: dict[str, dict] = defaultdict(lambda: {"calls": 0, "failed": 0, "ms": [], "wait_missed": 0,
+                                                  "busy": 0, "hints": Counter(), "errors": Counter()})
+    last_url: dict = {}  # session -> last URL seen, for entries that carry none (eval)
+    local = 0
+    days = set()
+    for e in entries:
+        if e.get("url"):
+            last_url[e.get("session")] = e["url"]
+        if _local(e.get("url") or last_url.get(e.get("session"))):
+            local += 1
+            continue
+        if e.get("purpose") == "extract":  # the page `extract` read for its parser: part of that extract
+            continue
+        if e.get("ts"):
+            days.add(e["ts"][:10])
+        s = stats[e["cmd"]]
+        s["calls"] += 1
+        if e.get("ms") is not None:
+            s["ms"].append(e["ms"])
+        if not e.get("ok", True):
+            s["failed"] += 1
+            s["errors"][_kind(e.get("error"))] += 1
+        s["wait_missed"] += bool(e.get("wait_missed"))
+        s["busy"] += bool(e.get("busy"))
+        if e.get("hint"):
+            s["hints"][e["hint"]] += 1
+    total = sum(s["calls"] for s in stats.values())
+    return {
+        "entries": total,
+        "local_left_out": local,
+        "days": len(days),
+        "first": min(days, default=None),
+        "last": max(days, default=None),
+        "commands": [
+            {"cmd": cmd, "calls": s["calls"], "share_pct": round(100 * s["calls"] / total, 1),
+             "failed": s["failed"], "failed_pct": round(100 * s["failed"] / s["calls"], 1),
+             "median_ms": round(median(s["ms"])) if s["ms"] else None,
+             "wait_missed": s["wait_missed"], "busy": s["busy"],
+             "hints": dict(s["hints"].most_common()), "errors": dict(s["errors"].most_common())}
+            for cmd, s in sorted(stats.items(), key=lambda kv: -kv[1]["calls"])
+        ],
+        "never_used": sorted(set(commands) - set(stats)),
+    }
+
+
+def usage_markdown(report: dict, sessions: list[str]) -> str:
+    period = (f"{report['first']} to {report['last']}, {report['days']} day(s) with use" if report["days"]
+              else ", ".join(sessions) or "no sessions")
+    lines = [f"# WebPilot usage ({period})", "",
+             f"{report['entries']} logged commands; {report['local_left_out']} on local pages (localhost, file:) "
+             "left out. No domains, URLs or page text: only command names and the first words of WebPilot's "
+             "messages.", "",
+             "| command | calls | share | failed | median ms | waits missed | page never quiet |",
+             "|---|---|---|---|---|---|---|"]
+    for c in report["commands"]:
+        lines.append(f"| {c['cmd']} | {c['calls']} | {c['share_pct']} % | {c['failed']} ({c['failed_pct']} %) | "
+                     f"{'' if c['median_ms'] is None else c['median_ms']} | {c['wait_missed']} | {c['busy']} |")
+    for title, key in (("Errors", "errors"), ("Hints", "hints")):
+        rows = [f"- `{c['cmd']}` x{n}: {k}" for c in report["commands"] for k, n in c[key].items()]
+        if rows:
+            lines += ["", f"## {title}"] + rows
+    lines += ["", "## Never used", ", ".join(report["never_used"]) or "(none)"]
+    return "\n".join(lines)
 
 
 def to_markdown(report: dict, sessions: list[str]) -> str:

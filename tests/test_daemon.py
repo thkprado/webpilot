@@ -352,6 +352,20 @@ def test_select_is_sent_and_logged_without_its_text(daemon):
     assert "billing" not in json.dumps(entries)
 
 
+def test_hints_are_logged_by_their_first_words_only(daemon):
+    from webpilot import session_log
+
+    results = {"select": {"selected": False, "value": "Gol", "hint": 'use select e16 "Gold plan"', "url": "https://x.test/"}}
+    ext = fake_extension(daemon["port"], daemon["token"], results=results)
+    b = Browser("real", autostart=False)
+    assert b.select("e16", "Gol")["hint"] == 'use select e16 "Gold plan"'  # the caller still gets it whole
+    b.close()
+    ext.close()
+    entry = session_log.read([session_log.session_name()])[-1]
+    assert entry["cmd"] == "select" and entry["hint"] == "use select"
+    assert "Gold" not in json.dumps(entry)
+
+
 def test_fetch_args_are_sent_and_logged_without_secrets(daemon):
     ext = fake_extension(daemon["port"], daemon["token"])
     b = Browser("real", autostart=False)

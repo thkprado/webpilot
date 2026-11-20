@@ -853,14 +853,35 @@ def reflect_data(
     session: Optional[list[str]] = typer.Option(None, "--session", help="Session name(s); default: today."),
     days: int = typer.Option(0, "--days", help="Include the previous N days too."),
     as_json: bool = typer.Option(False, "--json"),
+    usage: bool = typer.Option(False, "--usage", help="Per-command calls, failures, time, hints and errors, "
+                               "without domains or page text (safe to share)."),
 ):
     """Summarise logged browsing (domains, raw reads, parser use, errors) with optimisation suggestions."""
     names = list(session or [])
-    if not names:
+    if not names:  # dated sessions only: named ones are validation runs, read only with --session
         names = [(date.today() - timedelta(days=i)).isoformat() for i in range(days, -1, -1)]
         names = [n for n in names if n in session_log.available()] or [session_log.session_name()]
+    if usage:
+        report = reflect.usage(session_log.read(names), browser_commands())
+        out(report) if as_json else print(reflect.usage_markdown(report, names))
+        return
     report = reflect.analyze(session_log.read(names))
     out(report) if as_json else print(reflect.to_markdown(report, names))
+
+
+NOT_LOGGED = {"setup", "serve", "status", "stop", "search", "script", "reflect-data", "log",
+              "temp", "parser", "profile", "skill"}  # no browser command of their own in the log
+
+
+def browser_commands() -> list[str]:
+    """The browser commands as the log names them (`tab new` is tab.new, `tabs` is tabs.list)."""
+    names = []
+    for name, cmd in typer.main.get_command(app).commands.items():
+        if name in NOT_LOGGED:
+            continue
+        sub = getattr(cmd, "commands", None)
+        names += [f"{name}.{s}" for s in sub] if sub else ["tabs.list" if name == "tabs" else name]
+    return sorted(names)
 
 
 @app.command("log")
