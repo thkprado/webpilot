@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Locked dependencies updated: typer 0.29.1 and playwright 1.65.2, plus ruff 0.17.5 for development.** typer now validates command-line parameters with Pydantic, so installing WebPilot also brings `pydantic` (and `pydantic-core`, `annotated-types`, `typing-inspection`); WebPilot's commands and options work as before. playwright 1.65 drops its `pyee` dependency, bundles a Node.js security release for its driver and moves the temporary browser to Chromium 159, which the first temporary browser after updating downloads (about 125 MB), as on a first install.
+
 ## [0.2.0] - 2026-11-18
 
 ### Security
